@@ -16,50 +16,89 @@ Game ini mengadaptasi 3 konsep tantangan cerdas dari acara *Clash of Champions R
 
 ---
 
-## 🎯 Tujuan Pembelajaran (Capaian Pembelajaran)
-1. Memahami pengertian suhu sebagai derajat panas dingin dan energi kinetik rata-rata partikel zat.
-2. Memahami fungsi termometer serta alasan kulit/tangan bukan alat ukur baku.
-3. Mengenal prinsip kesetimbangan suhu (*thermal equilibrium*).
-4. Mengenal jenis termometer: Klinis/Badan, Laboratorium, dan Industri (Bimetal, Inframerah, Termokopel).
-5. Mengenali 4 skala suhu: Celsius (°C), Reamur (°R), Fahrenheit (°F), dan Kelvin (K - Satuan Internasional).
-6. Mengetahui titik tetap bawah (es lebur) dan titik tetap atas (air mendidih) setiap skala suhu.
-7. Memahami hubungan dan perbandingan skala suhu: $C : R : (F - 32) : (K - 273) = 5 : 4 : 9 : 5$.
-8. Menghitung konversi antarskala suhu dengan penalaran bertahap dan tepat.
-9. Melatih daya ingat visual (*photographic memory*), penalaran logis, dan kecepatan hitung numerik siswa.
+## 👥 Sistem 8 Kelompok & Identitas Pemain (Revisi Terbaru)
+
+### 1. Pembagian 8 Kelompok Resmi
+Game menyediakan tepat **8 Kelompok** dalam bentuk kartu visual yang menarik:
+- **Kelompok 1** (*Tim Celsius* 🌡️) — Skala 0°C – 100°C
+- **Kelompok 2** (*Tim Fahrenheit* 🔥) — Skala 32°F – 212°F
+- **Kelompok 3** (*Tim Reamur* ⚗️) — Rasio skala 4 dan batas 80°R
+- **Kelompok 4** (*Tim Kelvin* ❄️) — Standar Satuan Internasional (SI)
+- **Kelompok 5** (*Tim Bimetal* ⚙️) — Pemuaian logam instrumen industri
+- **Kelompok 6** (*Tim Pirometer* 🎯) — Pengukuran radiasi termal optik
+- **Kelompok 7** (*Tim Termokopel* ⚡) — Deteksi sinyal tegangan termal ekstrem
+- **Kelompok 8** (*Tim Kesetimbangan Termal* ⚖️) — Prinsip kesamaan suhu termometer dan benda
+
+Setiap kelompok dapat dipilih oleh beberapa pemain (siswa) tanpa batasan kuota.
+
+### 2. Pengisian Identitas Mandiri
+- **Nama Lengkap:** Diketik sendiri oleh siswa (wajib, tidak ada pengisian otomatis).
+- **Nomor Absen:** Diketik sendiri oleh siswa (wajib, validasi angka positif minimal 1).
+- **Tidak ada daftar nama bawaan atau data contoh tiruan.**
+
+### 3. Alur Masuk Permainan
+1. Pemain membuka Landing Page dan menekan tombol **"Mulai Bermain"**.
+2. Pemain memilih salah satu dari **8 Kelompok** pada kartu kelompok.
+3. Pemain mengetik **Nama Lengkap** sendiri.
+4. Pemain mengetik **Nomor Absen** sendiri.
+5. Sistem menampilkan kotak **Ringkasan Konfirmasi** (Kelompok, Nama Lengkap, Nomor Absen).
+6. Pemain menekan tombol **"Konfirmasi dan Mulai"**.
+7. Pemain masuk ke Dashboard Permainan dan dapat memulai tantangan.
 
 ---
 
-## 🎮 Struktur & Mekanisme 3 Mode Permainan
+## 📊 Sistem Penilaian Individu & Rekapitulasi Kelompok
 
-### 1. Mode 1 — StarChamp Challenge (THERMO QUIZ)
-- **Format:** 10 Soal Pilihan Ganda (A, B, C, D) ditampilkan satu per satu.
-- **Waktu:** 30 detik per soal.
-- **Bobot Nilai:** 3,5 poin per soal benar (Maksimal **35 Poin**).
-- **Fitur:** Umpan balik benar/salah instan, pembahasan ilmiah lengkap langsung di layar, perekaman durasi waktu pengerjaan.
+### A. Penyimpanan Data Pemain
+Setiap pemain memiliki catatan permainan mandiri di `localStorage` dengan struktur:
+```json
+{
+  "playerId": "tc_1730000000000_abc12",
+  "nama": "Nama Siswa",
+  "nomorAbsen": 12,
+  "kelompok": "Kelompok 1",
+  "skorStarChamp": 35,
+  "skorMemoryMadness": 30,
+  "skorNumberChains": 35,
+  "nilaiAkhir": 100,
+  "predikat": "Thermo Champion",
+  "tanggalPermainan": "2026-11-05T14:50:00.000Z",
+  "completed": true
+}
+```
+*Catatan pemain sebelumnya tidak akan tertimpa saat pemain baru mendaftar.*
 
-### 2. Mode 2 — Memory Madness (THERMO MEMORY)
-- **Fase 1 (Memorization):** Siswa mengamati grid 10 kartu informasi fakta titik tetap dan instrumen suhu selama 30 detik.
-- **Fase 2 (Recall):** 10 tantangan uji ingatan cepat (25 detik/soal) berdasarkan kartu yang telah dihafal tanpa melihat kembali.
-- **Bobot Nilai:** 3,0 poin per jawaban tepat (Maksimal **30 Poin**).
-- **Fitur:** Kartu yang salah dijawab dirangkum di akhir sesi untuk dipelajari kembali.
+### B. Rumus Penilaian Kelompok
+Peringkat kelompok ditentukan berdasarkan **Rata-Rata Nilai Akhir Anggota Tertinggi**:
 
-### 3. Mode 3 — Number Chains (THERMO CALCULATION)
-- **Format:** Rangkaian 5 tahapan konversi numerik berurutan dengan peningkatan kesulitan:
-  - *Tahap 1 (Easy):* Konversi 30°C ke °F $\rightarrow$ **86°F**
-  - *Tahap 2 (Easy):* Konversi 40°C ke °R $\rightarrow$ **32°R**
-  - *Tahap 3 (Medium):* Konversi 27°C ke Kelvin (SI) $\rightarrow$ **300 K**
-  - *Tahap 4 (Medium):* Konversi 212°F ke °C $\rightarrow$ **100°C**
-  - *Tahap 5 (Hard - Multi-step):* Konversi berantai 60°R $\rightarrow$ **75°C** $\rightarrow$ **167°F**
-- **Bobot Nilai:** 7 poin per tahapan (Maksimal **35 Poin**). Pada tahap bertingkat, nilai dialokasikan per langkah (masing-masing 3,5 poin).
-- **Fitur:** Tombol opsional petunjuk rumus bantuan, validasi toleransi numerik, pembahasan langkah demi langkah resmi.
+$$\text{Rata-rata Kelompok} = \frac{\text{Total Nilai Akhir Seluruh Anggota Selesai}}{\text{Jumlah Anggota yang Sudah Menyelesaikan Permainan}}$$
+
+- **Ketentuan Penting:** Hanya anggota yang telah menyelesaikan seluruh 3 mode yang dimasukkan ke dalam perhitungan rata-rata. Pemain yang belum selesai **tidak dianggap bernilai 0** sehingga tidak merugikan rata-rata kelompoknya.
+
+### C. Leaderboard Dua Kategori
+Papan peringkat (*Leaderboard*) menyediakan dua tab:
+1. **Leaderboard Kelompok (8 Kelompok):** Peringkat 8 kelompok berdasarkan rata-rata nilai, total nilai, dan jumlah anggota yang sudah selesai (lengkap dengan daftar nama anggota yang berkontribusi).
+2. **Leaderboard Individu:** Peringkat perorangan berdasarkan nilai akhir kumulatif tertinggi (maksimal 100).
 
 ---
 
-## 📊 Sistem Penilaian & Predikat Juara
+## 🎯 Tiga Arena Tantangan
 
-$$\text{Nilai Akhir} = \text{Nilai StarChamp} + \text{Nilai Memory} + \text{Nilai Number Chains} \quad (\text{Maksimal } 100)$$
+1. **Mode 1 — StarChamp Challenge (`THERMO QUIZ` - 35 Poin):**
+   - 10 Soal Pilihan Ganda (A, B, C, D) konsep suhu & jenis termometer.
+   - Timer 30 detik per soal, pembahasan ilmiah seketika, 3,5 poin per jawaban benar.
+2. **Mode 2 — Memory Madness (`THERMO MEMORY` - 30 Poin):**
+   - *Fase 1 (Memorization):* 30 detik menghafal 10 kartu titik tetap termometer.
+   - *Fase 2 (Recall):* 10 tantangan ingatan cepat (25 detik/soal), 3,0 poin per jawaban tepat.
+3. **Mode 3 — Number Chains (`THERMO CALCULATION` - 35 Poin):**
+   - 5 tahapan konversi suhu berurutan bertingkat (7 poin per tahap).
+   - Dilengkapi tombol petunjuk rumus bantuan dan kunci pembahasan resmi langkah demi langkah.
 
-| Rentang Nilai | Predikat Pencapaian | Lencana | Keterangan |
+---
+
+## 🏅 Predikat Pencapaian
+
+| Rentang Nilai | Predikat | Lencana | Kategori Kompetensi |
 | :---: | :---: | :---: | :--- |
 | **86 – 100** | **Thermo Champion** | 🏆 | Penguasaan materi konsep dan perhitungan sempurna |
 | **76 – 85** | **Thermo Expert** | 🎖️ | Pemahaman konsep dan konversi suhu sangat baik |
@@ -69,27 +108,13 @@ $$\text{Nilai Akhir} = \text{Nilai StarChamp} + \text{Nilai Memory} + \text{Nila
 
 ---
 
-## ✨ Fitur Unggulan Aplikasi
-1. **Simulasi Visual Termometer Interaktif 4 Skala:** Menampilkan tabung Celsius, Reamur, Fahrenheit, dan Kelvin yang bergerak paralel secara real-time saat slider digeser.
-2. **Kalkulator Simulasi Konversi Rumus:** Membantu siswa memverifikasi rumus secara langsung.
-3. **Piagam Penghargaan Resmi (Certificate of Achievement):** Dapat dicetak atau diunduh sebagai PDF dengan stempel resmi dan identitas siswa.
-4. **Papan Peringkat Lokal (Leaderboard):** Menyimpan rekor nilai tertinggi di peramban siswa.
-5. **Sintesis Efek Suara Web Audio API:** 100% offline, tanpa aset eksternal yang rentan rusak, lengkap dengan tombol bisukan/aktifkan suara.
-6. **Desain Modern Academic Game Show:** Responsif untuk smartphone, tablet, laptop, dan proyektor kelas.
+## 🚀 Panduan Menjalankan
 
----
-
-## 🚀 Panduan Menjalankan Aplikasi
-
-### Menjalankan Mode Pengembangan (Development)
-```bash
-npm install
+```powershell
+# Jalankan mode pengembangan
 npm run dev
-```
-Aplikasi dapat diakses pada `http://localhost:3000`.
 
-### Membangun Berkas Siap Pakai (Production Build)
-```bash
+# Kompilasi berkas siap pakai (production build di folder dist/)
 npm run build
 ```
-Hasil build berada di folder `dist/` dan dapat dibuka langsung atau disematkan pada hosting web sekolah (seperti GitHub Pages, Netlify, Vercel, dll).
+Akses di peramban pada `http://localhost:3000`.

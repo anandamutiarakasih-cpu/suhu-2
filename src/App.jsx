@@ -10,68 +10,50 @@ import NumberChains from './components/NumberChains';
 import FinalEvaluation from './components/FinalEvaluation';
 import LeaderboardModal from './components/LeaderboardModal';
 import HelpModal from './components/HelpModal';
-import TeamsRosterModal from './components/TeamsRosterModal';
 import { 
-  getPlayer, savePlayer, clearPlayer, 
-  getScores, saveScores 
+  getCurrentPlayer, savePlayerRecord, clearCurrentPlayer, 
+  getPredicate 
 } from './utils/storage';
 import { sound } from './utils/audio';
 
 export default function App() {
-  const [player, setPlayer] = useState(getPlayer());
-  const [scores, setScores] = useState(getScores());
+  const [player, setPlayer] = useState(getCurrentPlayer());
   const [currentView, setCurrentView] = useState(player ? 'dashboard' : 'landing');
   
   // Modals
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showTeamsRoster, setShowTeamsRoster] = useState(false);
 
   // Compute total score (max 100)
+  const starScore = Number(player?.skorStarChamp) || 0;
+  const memScore = Number(player?.skorMemoryMadness) || 0;
+  const calcScore = Number(player?.skorNumberChains) || 0;
   const totalScore = Math.min(
     100,
-    Math.round(((scores.quizScore || 0) + (scores.memoryScore || 0) + (scores.calcScore || 0)) * 10) / 10
+    Math.round((starScore + memScore + calcScore) * 10) / 10
   );
 
-  // Save scores automatically when changed
-  useEffect(() => {
-    saveScores(scores);
-  }, [scores]);
-
-  // Handle player registration
+  // Handle player registration / confirmation
   const handleSavePlayer = (newPlayer) => {
-    savePlayer(newPlayer);
+    savePlayerRecord(newPlayer);
     setPlayer(newPlayer);
     setShowPlayerModal(false);
     setCurrentView('dashboard');
   };
 
-  // Handle selecting team from Roster Modal
-  const handleSelectTeamFromRoster = (team) => {
-    const teamPlayer = {
-      isTeam: true,
-      teamId: team.id,
-      name: `${team.name} (${team.teamName})`,
-      teamName: team.teamName,
-      groupName: team.name,
-      badge: team.badge,
-      className: player?.className || '7-A',
-      members: team.members,
-      motto: team.motto,
-      studentNumber: `Absen ${team.members[0].absentNo}-${team.members[3].absentNo}`
-    };
-    savePlayer(teamPlayer);
-    setPlayer(teamPlayer);
-    setCurrentView('dashboard');
+  // Start a new player session (doesn't wipe previous player's records)
+  const handleNewPlayer = () => {
+    clearCurrentPlayer();
+    setPlayer(null);
+    setShowPlayerModal(true);
   };
 
   // Handle player logout / change
   const handleLogout = () => {
-    if (window.confirm('Ganti kelompok atau pemain? Skor kelompok saat ini tetap tersimpan di perangkat.')) {
-      clearPlayer();
+    if (window.confirm('Selesaikan sesi pemain saat ini? Rekor nilaimu tersimpan aman di sistem leaderboard.')) {
+      clearCurrentPlayer();
       setPlayer(null);
-      setScores(getScores());
       setCurrentView('landing');
     }
   };
@@ -85,75 +67,138 @@ export default function App() {
     setCurrentView(modeName);
   };
 
-  // Finish Mode 1 (Quiz)
+  // Finish Mode 1 (StarChamp Quiz)
   const handleFinishQuiz = ({ score, stats }) => {
-    const updated = {
-      ...scores,
-      quizScore: score,
-      quizCompleted: true,
-      quizStats: stats,
-    };
-    setScores(updated);
-    saveScores(updated);
+    const updatedStar = score;
+    const currentMem = Number(player.skorMemoryMadness) || 0;
+    const currentCalc = Number(player.skorNumberChains) || 0;
+    const newTotal = Math.min(100, Math.round((updatedStar + currentMem + currentCalc) * 10) / 10);
+    const pred = getPredicate(newTotal);
 
-    if (updated.memoryCompleted && updated.calcCompleted) {
+    const isNowAllCompleted = Boolean(player.modesCompleted?.memory && player.modesCompleted?.calc);
+
+    const updatedPlayer = {
+      ...player,
+      skorStarChamp: updatedStar,
+      nilaiAkhir: newTotal,
+      predikat: pred.title,
+      completed: isNowAllCompleted,
+      modesCompleted: {
+        ...(player.modesCompleted || {}),
+        quiz: true
+      },
+      stats: {
+        ...(player.stats || {}),
+        quiz: stats
+      }
+    };
+
+    savePlayerRecord(updatedPlayer);
+    setPlayer(updatedPlayer);
+
+    if (isNowAllCompleted) {
       setCurrentView('evaluation');
     } else {
       setCurrentView('dashboard');
     }
   };
 
-  // Finish Mode 2 (Memory)
+  // Finish Mode 2 (Memory Madness)
   const handleFinishMemory = ({ score, stats }) => {
-    const updated = {
-      ...scores,
-      memoryScore: score,
-      memoryCompleted: true,
-      memoryStats: stats,
-    };
-    setScores(updated);
-    saveScores(updated);
+    const currentStar = Number(player.skorStarChamp) || 0;
+    const updatedMem = score;
+    const currentCalc = Number(player.skorNumberChains) || 0;
+    const newTotal = Math.min(100, Math.round((currentStar + updatedMem + currentCalc) * 10) / 10);
+    const pred = getPredicate(newTotal);
 
-    if (updated.quizCompleted && updated.calcCompleted) {
+    const isNowAllCompleted = Boolean(player.modesCompleted?.quiz && player.modesCompleted?.calc);
+
+    const updatedPlayer = {
+      ...player,
+      skorMemoryMadness: updatedMem,
+      nilaiAkhir: newTotal,
+      predikat: pred.title,
+      completed: isNowAllCompleted,
+      modesCompleted: {
+        ...(player.modesCompleted || {}),
+        memory: true
+      },
+      stats: {
+        ...(player.stats || {}),
+        memory: stats
+      }
+    };
+
+    savePlayerRecord(updatedPlayer);
+    setPlayer(updatedPlayer);
+
+    if (isNowAllCompleted) {
       setCurrentView('evaluation');
     } else {
       setCurrentView('dashboard');
     }
   };
 
-  // Finish Mode 3 (Chains)
+  // Finish Mode 3 (Number Chains)
   const handleFinishCalc = ({ score, stats }) => {
-    const updated = {
-      ...scores,
-      calcScore: score,
-      calcCompleted: true,
-      calcStats: stats,
-    };
-    setScores(updated);
-    saveScores(updated);
+    const currentStar = Number(player.skorStarChamp) || 0;
+    const currentMem = Number(player.skorMemoryMadness) || 0;
+    const updatedCalc = score;
+    const newTotal = Math.min(100, Math.round((currentStar + currentMem + updatedCalc) * 10) / 10);
+    const pred = getPredicate(newTotal);
 
-    if (updated.quizCompleted && updated.memoryCompleted) {
+    const isNowAllCompleted = Boolean(player.modesCompleted?.quiz && player.modesCompleted?.memory);
+
+    const updatedPlayer = {
+      ...player,
+      skorNumberChains: updatedCalc,
+      nilaiAkhir: newTotal,
+      predikat: pred.title,
+      completed: isNowAllCompleted,
+      modesCompleted: {
+        ...(player.modesCompleted || {}),
+        calc: true
+      },
+      stats: {
+        ...(player.stats || {}),
+        calc: stats
+      }
+    };
+
+    savePlayerRecord(updatedPlayer);
+    setPlayer(updatedPlayer);
+
+    if (isNowAllCompleted) {
       setCurrentView('evaluation');
     } else {
       setCurrentView('dashboard');
     }
   };
 
-  // Reset all game scores to play again
+  // Reset player scores to re-play all 3 modes
   const handleResetAll = () => {
-    const freshScores = {
-      quizScore: 0,
-      quizCompleted: false,
-      quizStats: null,
-      memoryScore: 0,
-      memoryCompleted: false,
-      memoryStats: null,
-      calcScore: 0,
-      calcCompleted: false,
-      calcStats: null,
+    const resetPlayer = {
+      ...player,
+      skorStarChamp: 0,
+      skorMemoryMadness: 0,
+      skorNumberChains: 0,
+      nilaiAkhir: 0,
+      predikat: 'Temperature Rookie',
+      completed: false,
+      modesCompleted: {
+        quiz: false,
+        memory: false,
+        calc: false
+      },
+      stats: {
+        quiz: null,
+        memory: null,
+        calc: null
+      }
     };
-    setScores(freshScores);
-    saveScores(freshScores);
+
+    savePlayerRecord(resetPlayer);
+    setPlayer(resetPlayer);
     setCurrentView('dashboard');
   };
 
@@ -168,7 +213,6 @@ export default function App() {
         totalScore={totalScore}
         onOpenLeaderboard={() => setShowLeaderboard(true)}
         onOpenHelp={() => setShowHelp(true)}
-        onOpenTeamsRoster={() => setShowTeamsRoster(true)}
         onLogout={handleLogout}
       />
 
@@ -188,14 +232,12 @@ export default function App() {
         {currentView === 'dashboard' && player && (
           <Dashboard
             player={player}
-            scores={scores}
             onStartMode={handleStartMode}
             onViewEvaluation={() => setCurrentView('evaluation')}
             onOpenMaterial={() => setCurrentView('material')}
             onOpenLeaderboard={() => setShowLeaderboard(true)}
             onOpenHelp={() => setShowHelp(true)}
-            onEditProfile={() => setShowPlayerModal(true)}
-            onOpenTeamsRoster={() => setShowTeamsRoster(true)}
+            onNewPlayer={handleNewPlayer}
           />
         )}
 
@@ -236,7 +278,6 @@ export default function App() {
         {currentView === 'evaluation' && player && (
           <FinalEvaluation
             player={player}
-            scores={scores}
             onResetAll={handleResetAll}
             onBackToDashboard={() => setCurrentView('dashboard')}
             onOpenLeaderboard={() => setShowLeaderboard(true)}
@@ -251,34 +292,31 @@ export default function App() {
           <div className="flex items-center gap-1.5 font-bold text-navy-950">
             <span>THERMO CHAMPIONS</span>
             <span>•</span>
-            <span className="text-slate-500 font-normal">Kompetisi 8 Kelompok (32 Siswa) • IPA Kelas VII SMP</span>
+            <span className="text-slate-500 font-normal">Media Pembelajaran IPA Kelas VII SMP — 8 Kelompok</span>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowTeamsRoster(true)}
+              onClick={() => setShowLeaderboard(true)}
               className="text-deepblue hover:underline font-bold"
             >
-              Matriks 8 Kelompok
+              Leaderboard Individu & Kelompok
             </button>
             <span>•</span>
-            <span>Materi Suhu & Termometer</span>
+            <span>Materi Pokok: Suhu & Termometer</span>
           </div>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Registration Modal */}
       {showPlayerModal && (
         <PlayerModal
           initialPlayer={player}
           onSavePlayer={handleSavePlayer}
           onCancel={player ? () => setShowPlayerModal(false) : null}
-          onOpenTeamsRoster={() => {
-            setShowPlayerModal(false);
-            setShowTeamsRoster(true);
-          }}
         />
       )}
 
+      {/* Leaderboard Modal (Individu & 8 Kelompok) */}
       {showLeaderboard && (
         <LeaderboardModal
           currentPlayer={player}
@@ -286,16 +324,10 @@ export default function App() {
         />
       )}
 
+      {/* Help / Rules Modal */}
       {showHelp && (
         <HelpModal
           onClose={() => setShowHelp(false)}
-        />
-      )}
-
-      {showTeamsRoster && (
-        <TeamsRosterModal
-          onClose={() => setShowTeamsRoster(false)}
-          onSelectTeamToPlay={handleSelectTeamFromRoster}
         />
       )}
 

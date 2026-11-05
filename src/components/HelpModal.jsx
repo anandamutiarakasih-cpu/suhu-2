@@ -152,10 +152,12 @@ export default function HelpModal({ onClose }) {
           </div>
 
           {/* Important Rules */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1 text-slate-600">
-            <span className="font-bold text-navy-950 block mb-1">Catatan Penting:</span>
-            <p>• Nilai akhir adalah penjumlahan murni: <strong>StarChamp (35) + Memory (30) + Number Chains (35) = 100 Poin</strong>.</p>
-            <p>• Skor tersimpan otomatis di peramban (browser) kamu, sehingga tidak akan hilang saat berpindah menu.</p>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2 text-slate-600">
+            <span className="font-bold text-navy-950 block mb-1">Ketentuan Sistem 8 Kelompok & Penilaian:</span>
+            <p>• <strong>8 Kelompok Resmi:</strong> Pemain memilih salah satu dari Kelompok 1 s.d. Kelompok 8, lalu mengetik nama lengkap dan nomor absen sendiri.</p>
+            <p>• <strong>Nilai Kumulatif Individu:</strong> StarChamp (35) + Memory (30) + Number Chains (35) = <strong>Maksimal 100 Poin</strong>.</p>
+            <p>• <strong>Penilaian & Peringkat Kelompok:</strong> Rata-rata Kelompok dihitung dari <em>Total Nilai Anggota Selesai / Jumlah Anggota yang Sudah Menyelesaikan Permainan</em>. Anggota yang belum selesai tidak dihitung 0 agar tidak merugikan kelompok.</p>
+            <p>• Skor setiap pemain tersimpan mandiri di peramban dan tidak menimpa catatan pemain lain.</p>
           </div>
 
         </div>

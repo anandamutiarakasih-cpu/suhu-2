@@ -1,89 +1,74 @@
 import React from 'react';
 import { 
   Trophy, BookOpen, HelpCircle, Brain, Zap, Hash, CheckCircle2, 
-  ArrowRight, RotateCcw, Award, Sparkles, AlertCircle, PlayCircle, Users 
+  ArrowRight, RotateCcw, Award, Sparkles, PlayCircle, Users, UserPlus 
 } from 'lucide-react';
 import { getPredicate } from '../utils/storage';
 import { sound } from '../utils/audio';
 
 export default function Dashboard({
   player,
-  scores,
   onStartMode,
   onViewEvaluation,
   onOpenMaterial,
   onOpenLeaderboard,
   onOpenHelp,
-  onEditProfile,
-  onOpenTeamsRoster
+  onNewPlayer
 }) {
-  const totalScore = Math.round((scores.quizScore + scores.memoryScore + scores.calcScore) * 10) / 10;
+  const starScore = player.skorStarChamp || 0;
+  const memScore = player.skorMemoryMadness || 0;
+  const calcScore = player.skorNumberChains || 0;
+  const totalScore = Math.min(100, Math.round((starScore + memScore + calcScore) * 10) / 10);
   const predicate = getPredicate(totalScore);
 
   const completedCount = 
-    (scores.quizCompleted ? 1 : 0) + 
-    (scores.memoryCompleted ? 1 : 0) + 
-    (scores.calcCompleted ? 1 : 0);
+    (player.modesCompleted?.quiz ? 1 : 0) + 
+    (player.modesCompleted?.memory ? 1 : 0) + 
+    (player.modesCompleted?.calc ? 1 : 0);
 
   const allCompleted = completedCount === 3;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn">
       
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-navy-950 via-deepblue to-navy-900 p-6 sm:p-10 text-white shadow-xl border border-electric/20 mb-8">
-        {/* Glow circle */}
         <div className="absolute -right-16 -top-16 w-64 h-64 bg-electric/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-electric text-xs font-bold uppercase tracking-wider mb-3">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>
-                {player.isTeam ? `Kompetisi Antar-Kelompok (8 Tim • 32 Siswa)` : `Dashboard Kompetisi`}
-              </span>
+              <span>Kompetisi Akademik IPA VII • {player.kelompok}</span>
             </div>
 
             <div className="flex items-center gap-3 mb-2">
-              {player.isTeam && (
-                <span className="text-3xl sm:text-4xl">{player.badge || '🌡️'}</span>
-              )}
+              <span className="text-3xl sm:text-4xl">{player.badge || '🌡️'}</span>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
-                {player.isTeam ? (
-                  <span>
-                    {player.groupName} — <span className="text-electric">{player.teamName}</span>
-                  </span>
-                ) : (
-                  <span>
-                    Selamat Bertanding, <span className="text-electric">{player.name}</span>!
-                  </span>
-                )}
+                Halo, <span className="text-electric">{player.nama}</span>!
               </h1>
             </div>
 
-            <p className="text-slate-300 text-sm sm:text-base max-w-xl">
-              Kelas {player.className} {player.studentNumber ? `• ${player.studentNumber}` : ''}
-              {player.motto && <span className="block text-amber-300 italic text-xs mt-1">"{player.motto}"</span>}
-            </p>
-
-            {/* If Team Mode: Show 4 Members Chips */}
-            {player.isTeam && player.members && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {player.members.map((m, idx) => (
-                  <div key={idx} className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/15 text-[11px] backdrop-blur-sm">
-                    <span className="text-slate-300 text-[10px] block">{m.role}:</span>
-                    <strong className="text-white">{m.name}</strong> <span className="text-electric font-mono">({m.absentNo})</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-300 font-medium">
+              <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 font-bold text-white">
+                {player.kelompok}
+              </span>
+              <span>•</span>
+              <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 font-mono font-bold text-white">
+                No. Absen {player.nomorAbsen}
+              </span>
+              <span>•</span>
+              <span className="text-slate-300">
+                Selesaikan 3 mode untuk mencatat nilai pribadimu & menyumbang rata-rata kelompok!
+              </span>
+            </div>
           </div>
 
           {/* Player Score & Predicate Widget */}
-          <div className="flex sm:flex-col items-center sm:items-end justify-between bg-white/10 p-4 sm:p-5 rounded-2xl border border-white/15 backdrop-blur-md min-w-[200px] shrink-0">
+          <div className="flex sm:flex-col items-center sm:items-end justify-between bg-white/10 p-4 sm:p-5 rounded-2xl border border-white/15 backdrop-blur-md min-w-[210px] shrink-0">
             <div className="text-left sm:text-right">
-              <span className="text-xs uppercase font-bold text-slate-300 tracking-wider">
-                Total Nilai {player.isTeam ? 'Tim' : 'Saat Ini'}
+              <span className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">
+                Total Nilai Saat Ini
               </span>
               <div className="text-3xl sm:text-4xl font-black font-mono text-white flex items-baseline sm:justify-end gap-1">
                 <span>{totalScore}</span>
@@ -129,10 +114,10 @@ export default function Dashboard({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-navy-950">
-                Luar Biasa! Seluruh Rangkaian 3 Mode Berhasil Diselesaikan!
+                Luar Biasa, {player.nama}! Semua 3 Mode Berhasil Diselesaikan!
               </h3>
               <p className="text-xs sm:text-sm text-slate-600">
-                Nilai Akhir: <strong className="text-navy-950 font-mono">{totalScore}/100</strong> dengan predikat <strong className="text-amber-600">{predicate.title}</strong>.
+                Nilai Akhirmu: <strong className="text-navy-950 font-mono">{totalScore}/100</strong> ({predicate.title}). Nilaimu telah resmi masuk ke rekapitulasi <strong>{player.kelompok}</strong>!
               </p>
             </div>
           </div>
@@ -144,31 +129,29 @@ export default function Dashboard({
             className="w-full sm:w-auto px-6 py-3 rounded-xl bg-navy-950 hover:bg-deepblue text-white font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-2 whitespace-nowrap"
           >
             <Award className="w-5 h-5 text-amber-400" />
-            <span>Lihat Evaluasi & Piagam Juara</span>
+            <span>Lihat Hasil Evaluasi Lengkap</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Quick Action Buttons Row */}
+      {/* Quick Actions Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <h2 className="text-xl font-black text-navy-950 flex items-center gap-2">
           <span>Pilih Arena Tantangan</span>
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">
-          {onOpenTeamsRoster && (
-            <button
-              onClick={() => {
-                sound.click();
-                onOpenTeamsRoster();
-              }}
-              className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-deepblue text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
-            >
-              <Users className="w-4 h-4 text-deepblue" />
-              <span>Matriks 8 Kelompok (32 Siswa)</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              sound.click();
+              onOpenLeaderboard();
+            }}
+            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
+          >
+            <Trophy className="w-4 h-4 text-amber-500" />
+            <span>Leaderboard Individu & Kelompok</span>
+          </button>
 
           <button
             onClick={() => {
@@ -195,12 +178,13 @@ export default function Dashboard({
           <button
             onClick={() => {
               sound.click();
-              onOpenLeaderboard();
+              onNewPlayer();
             }}
-            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
+            className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-deepblue text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+            title="Daftarkan siswa lain / ganti kelompok"
           >
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span>Peringkat</span>
+            <UserPlus className="w-4 h-4" />
+            <span>Pemain Baru</span>
           </button>
         </div>
       </div>
@@ -210,7 +194,7 @@ export default function Dashboard({
         
         {/* CARD 1: StarChamp Challenge */}
         <div className={`rounded-3xl p-6 sm:p-7 border transition-all flex flex-col justify-between ${
-          scores.quizCompleted 
+          player.modesCompleted?.quiz 
             ? 'bg-white border-blue-200 shadow-md ring-1 ring-blue-100' 
             : 'bg-white border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-lg'
         }`}>
@@ -237,10 +221,10 @@ export default function Dashboard({
           <div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 mb-4 flex items-center justify-between text-xs">
               <span className="text-slate-500 font-semibold">Status:</span>
-              {scores.quizCompleted ? (
+              {player.modesCompleted?.quiz ? (
                 <span className="font-bold text-emerald-600 flex items-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
-                  Selesai ({scores.quizScore}/35 Pts)
+                  Selesai ({player.skorStarChamp}/35 Pts)
                 </span>
               ) : (
                 <span className="font-bold text-slate-500">Belum Dimainkan</span>
@@ -253,12 +237,12 @@ export default function Dashboard({
                 onStartMode('quiz');
               }}
               className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                scores.quizCompleted
+                player.modesCompleted?.quiz
                   ? 'bg-blue-50 text-deepblue hover:bg-blue-100 border border-blue-200'
                   : 'bg-deepblue hover:bg-navy-950 text-white shadow-md'
               }`}
             >
-              {scores.quizCompleted ? (
+              {player.modesCompleted?.quiz ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
                   <span>Main Ulang Mode 1</span>
@@ -275,7 +259,7 @@ export default function Dashboard({
 
         {/* CARD 2: Memory Madness */}
         <div className={`rounded-3xl p-6 sm:p-7 border transition-all flex flex-col justify-between ${
-          scores.memoryCompleted 
+          player.modesCompleted?.memory 
             ? 'bg-white border-sky-200 shadow-md ring-1 ring-sky-100' 
             : 'bg-white border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-lg'
         }`}>
@@ -302,10 +286,10 @@ export default function Dashboard({
           <div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 mb-4 flex items-center justify-between text-xs">
               <span className="text-slate-500 font-semibold">Status:</span>
-              {scores.memoryCompleted ? (
+              {player.modesCompleted?.memory ? (
                 <span className="font-bold text-emerald-600 flex items-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
-                  Selesai ({scores.memoryScore}/30 Pts)
+                  Selesai ({player.skorMemoryMadness}/30 Pts)
                 </span>
               ) : (
                 <span className="font-bold text-slate-500">Belum Dimainkan</span>
@@ -318,12 +302,12 @@ export default function Dashboard({
                 onStartMode('memory');
               }}
               className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                scores.memoryCompleted
+                player.modesCompleted?.memory
                   ? 'bg-sky-50 text-navy-900 hover:bg-sky-100 border border-sky-200'
                   : 'bg-navy-900 hover:bg-navy-950 text-white shadow-md'
               }`}
             >
-              {scores.memoryCompleted ? (
+              {player.modesCompleted?.memory ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
                   <span>Main Ulang Mode 2</span>
@@ -340,7 +324,7 @@ export default function Dashboard({
 
         {/* CARD 3: Number Chains */}
         <div className={`rounded-3xl p-6 sm:p-7 border transition-all flex flex-col justify-between ${
-          scores.calcCompleted 
+          player.modesCompleted?.calc 
             ? 'bg-white border-orange-200 shadow-md ring-1 ring-orange-100' 
             : 'bg-white border-slate-200 hover:border-orange-400 shadow-sm hover:shadow-lg'
         }`}>
@@ -367,10 +351,10 @@ export default function Dashboard({
           <div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 mb-4 flex items-center justify-between text-xs">
               <span className="text-slate-500 font-semibold">Status:</span>
-              {scores.calcCompleted ? (
+              {player.modesCompleted?.calc ? (
                 <span className="font-bold text-emerald-600 flex items-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
-                  Selesai ({scores.calcScore}/35 Pts)
+                  Selesai ({player.skorNumberChains}/35 Pts)
                 </span>
               ) : (
                 <span className="font-bold text-slate-500">Belum Dimainkan</span>
@@ -383,12 +367,12 @@ export default function Dashboard({
                 onStartMode('calc');
               }}
               className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                scores.calcCompleted
+                player.modesCompleted?.calc
                   ? 'bg-orange-50 text-thermoOrange-hover hover:bg-orange-100 border border-orange-200'
                   : 'bg-thermoOrange hover:bg-thermoOrange-hover text-white shadow-md'
               }`}
             >
-              {scores.calcCompleted ? (
+              {player.modesCompleted?.calc ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
                   <span>Main Ulang Mode 3</span>

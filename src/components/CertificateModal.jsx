@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Printer, X, Download, Flame, ShieldCheck, Users } from 'lucide-react';
+import { Award, Printer, X, Flame, ShieldCheck } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 export default function CertificateModal({ player, totalScore, predicate, onClose }) {
@@ -82,50 +82,26 @@ export default function CertificateModal({ player, totalScore, predicate, onClos
             Dengan bangga dan apresiasi tinggi dianugerahkan kepada:
           </p>
 
-          {/* Recipient Name: Team or Individual */}
-          {player?.isTeam ? (
-            <div className="my-3">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-navy-950 font-serif tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
-                {player.groupName} — {player.teamName}
-              </h2>
-              <p className="text-xs font-semibold text-slate-600 mt-2">
-                Kelas {player.className || '7'} {player.studentNumber ? `• ${player.studentNumber}` : ''}
-              </p>
-
-              {/* 4 Team Members on Certificate */}
-              {player.members && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-xl mx-auto my-4 text-left">
-                  {player.members.map((m, idx) => (
-                    <div key={idx} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                      <div className="text-[9px] uppercase font-bold text-deepblue truncate">{m.role}</div>
-                      <div className="text-xs font-bold text-navy-950 truncate">{m.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">Absen {m.absentNo}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="my-3">
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-navy-950 font-serif tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
-                {player?.name || 'Peserta Didik'}
-              </h2>
-              <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-3 mb-4">
-                Kelas {player?.className || '7'} {player?.studentNumber ? `• No. Absen ${player.studentNumber}` : ''}
-              </p>
-            </div>
-          )}
+          {/* Recipient Full Name */}
+          <div className="my-3">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-navy-950 font-serif tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
+              {player?.nama || 'Peserta Didik'}
+            </h2>
+            <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-3 mb-2">
+              Nomor Absen: <strong className="font-mono text-navy-950">{player?.nomorAbsen || '-'}</strong> • Anggota: <strong className="text-deepblue">{player?.kelompok || 'Kelompok 1'}</strong>
+            </p>
+          </div>
 
           <p className="text-xs sm:text-sm text-slate-700 max-w-xl mx-auto leading-relaxed mb-6">
             Telah berhasil menyelesaikan seluruh rangkaian tantangan kompetisi akademik tiga mode:
-            <strong> StarChamp Challenge</strong>, <strong>Memory Madness</strong>, dan <strong>Number Chains</strong>, serta membuktikan kompetensi luar biasa dalam konsep suhu dan konversi termometer.
+            <strong> StarChamp Challenge</strong>, <strong>Memory Madness</strong>, dan <strong>Number Chains</strong>, serta membuktikan pemahaman konsep dan keterampilan konversi suhu secara mandiri.
           </p>
 
           {/* Score & Predicate Highlight Badge */}
           <div className="inline-flex flex-col sm:flex-row items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-50 via-slate-50 to-amber-50 border-2 border-amber-300 shadow-sm mx-auto mb-8">
             <div className="text-center sm:text-left">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
-                Total Perolehan Nilai
+                Total Nilai Akhir
               </span>
               <span className="text-3xl font-black font-mono text-navy-950">
                 {totalScore} <span className="text-sm font-normal text-slate-500">/ 100</span>
@@ -136,7 +112,7 @@ export default function CertificateModal({ player, totalScore, predicate, onClos
 
             <div className="text-center sm:text-left">
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
-                Predikat Pencapaian
+                Predikat Capaian
               </span>
               <span className="text-lg font-black text-amber-700 flex items-center gap-1.5 justify-center sm:justify-start">
                 <span>{predicate.badge}</span>
@@ -154,7 +130,7 @@ export default function CertificateModal({ player, totalScore, predicate, onClos
                 <span>Terverifikasi Sah</span>
               </div>
               <div className="text-[10px] text-slate-400 font-mono">
-                ID: TC-{Date.now().toString().slice(-6)}
+                ID: TC-{player?.playerId ? player.playerId.slice(-8) : Date.now().toString().slice(-6)}
               </div>
               <div className="text-[10px] text-slate-400">
                 Tanggal: {currentDate}

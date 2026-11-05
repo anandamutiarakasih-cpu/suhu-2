@@ -1,291 +1,302 @@
 import React, { useState } from 'react';
-import { User, Users, Award, ArrowRight, Sparkles, BookOpen, Check } from 'lucide-react';
-import { getStoredTeams } from '../data/teamData';
+import { EIGHT_GROUPS } from '../data/teamData';
+import { createPlayerId } from '../utils/storage';
 import { sound } from '../utils/audio';
+import { Flame, CheckCircle2, User, Hash, ArrowRight, X, ShieldAlert, Sparkles } from 'lucide-react';
 
-export default function PlayerModal({ onSavePlayer, initialPlayer, onCancel, onOpenTeamsRoster }) {
-  const [playMode, setPlayMode] = useState(initialPlayer?.isTeam !== false ? 'team' : 'individual'); // 'team' | 'individual'
-  const teams = getStoredTeams();
+export default function PlayerModal({ onSavePlayer, initialPlayer, onCancel }) {
+  // 1. Group Selection (Kelompok 1 - 8)
+  const [selectedGroupId, setSelectedGroupId] = useState(
+    initialPlayer?.kelompok 
+      ? EIGHT_GROUPS.find(g => g.name === initialPlayer.kelompok)?.id || 1 
+      : 1
+  );
+
+  // 2. Identity Inputs - Blank by default, NO auto-fill, typed manually
+  const [namaLengkap, setNamaLengkap] = useState(initialPlayer?.nama || '');
+  const [nomorAbsen, setNomorAbsen] = useState(initialPlayer?.nomorAbsen !== undefined ? String(initialPlayer.nomorAbsen) : '');
   
-  // Team selection state
-  const [selectedTeamId, setSelectedTeamId] = useState(initialPlayer?.teamId || 1);
-  const [className, setClassName] = useState(initialPlayer?.className || '7-A');
-  
-  // Individual selection state
-  const [individualName, setIndividualName] = useState(initialPlayer?.name || '');
-  const [studentNumber, setStudentNumber] = useState(initialPlayer?.studentNumber || '');
-  const [error, setError] = useState('');
+  // Validation state
+  const [errors, setErrors] = useState({});
 
-  const currentSelectedTeam = teams.find((t) => t.id === Number(selectedTeamId)) || teams[0];
+  const selectedGroup = EIGHT_GROUPS.find((g) => g.id === selectedGroupId) || EIGHT_GROUPS[0];
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (playMode === 'team') {
-      sound.click();
-      onSavePlayer({
-        isTeam: true,
-        teamId: currentSelectedTeam.id,
-        name: `${currentSelectedTeam.name} (${currentSelectedTeam.teamName})`,
-        teamName: currentSelectedTeam.teamName,
-        groupName: currentSelectedTeam.name,
-        badge: currentSelectedTeam.badge,
-        className: className.trim(),
-        members: currentSelectedTeam.members,
-        motto: currentSelectedTeam.motto,
-        studentNumber: `Absen ${currentSelectedTeam.members[0].absentNo}-${currentSelectedTeam.members[3].absentNo}`
-      });
-    } else {
-      if (!individualName.trim()) {
-        sound.wrong();
-        setError('Mohon masukkan nama pemain terlebih dahulu.');
-        return;
-      }
-      sound.click();
-      onSavePlayer({
-        isTeam: false,
-        name: individualName.trim(),
-        className: className.trim(),
-        studentNumber: studentNumber.trim()
-      });
+  const handleSelectGroup = (id) => {
+    sound.click();
+    setSelectedGroupId(id);
+    if (errors.kelompok) {
+      setErrors((prev) => ({ ...prev, kelompok: null }));
     }
   };
 
+  const handleValidationAndSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    // Validate Nama Lengkap
+    const trimmedNama = namaLengkap.trim();
+    if (!trimmedNama) {
+      newErrors.nama = 'Nama lengkap wajib diisi sendiri oleh pemain.';
+    } else if (trimmedNama.length < 2) {
+      newErrors.nama = 'Nama lengkap minimal 2 karakter.';
+    }
+
+    // Validate Nomor Absen: Must be a positive integer
+    const parsedAbsen = parseInt(nomorAbsen, 10);
+    if (!nomorAbsen || isNaN(parsedAbsen)) {
+      newErrors.absen = 'Nomor absen wajib diisi dengan angka.';
+    } else if (parsedAbsen <= 0) {
+      newErrors.absen = 'Nomor absen harus merupakan angka positif (minimal 1).';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      sound.wrong();
+      setErrors(newErrors);
+      return;
+    }
+
+    sound.click();
+
+    // Create unique player record matching specification:
+    // playerId, nama, nomorAbsen, kelompok, skorStarChamp, skorMemoryMadness, skorNumberChains, nilaiAkhir, predikat, tanggalPermainan
+    const newPlayer = {
+      playerId: initialPlayer?.playerId || createPlayerId(),
+      nama: trimmedNama,
+      nomorAbsen: parsedAbsen,
+      kelompok: selectedGroup.name,
+      themeName: selectedGroup.themeName,
+      badge: selectedGroup.badge,
+      skorStarChamp: initialPlayer?.skorStarChamp || 0,
+      skorMemoryMadness: initialPlayer?.skorMemoryMadness || 0,
+      skorNumberChains: initialPlayer?.skorNumberChains || 0,
+      nilaiAkhir: initialPlayer?.nilaiAkhir || 0,
+      predikat: initialPlayer?.predikat || 'Temperature Rookie',
+      tanggalPermainan: initialPlayer?.tanggalPermainan || new Date().toISOString(),
+      completed: initialPlayer?.completed || false,
+      modesCompleted: initialPlayer?.modesCompleted || {
+        quiz: false,
+        memory: false,
+        calc: false
+      },
+      stats: initialPlayer?.stats || {
+        quiz: null,
+        memory: null,
+        calc: null
+      }
+    };
+
+    onSavePlayer(newPlayer);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-xl w-full overflow-hidden p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-navy-950/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full overflow-hidden flex flex-col max-h-[94vh]">
         
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-deepblue to-electric text-white flex items-center justify-center mx-auto mb-3 shadow-glow-electric">
-            {playMode === 'team' ? <Users className="w-7 h-7" /> : <User className="w-7 h-7" />}
+        {/* Modal Top Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-navy-950 via-deepblue to-navy-900 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-thermoOrange to-amber-400 flex items-center justify-center shadow-glow-orange">
+              <Flame className="w-6 h-6 text-navy-950 fill-navy-950" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                <Sparkles className="w-3 h-3" />
+                <span>Pendaftaran Pemain Baru</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black">Identitas & Pemilihan Kelompok</h2>
+            </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-deepblue text-xs font-bold uppercase tracking-wider mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Pendaftaran Peserta Kelas VII</span>
-          </div>
-          <h2 className="text-2xl font-black text-navy-950">
-            {playMode === 'team' ? 'Pilih Tim dari 8 Kelompok' : 'Identitas Pemain Tunggal'}
-          </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-1">
-            Format kelas 32 siswa dibagi menjadi 8 kelompok akademik (4 siswa/tim).
-          </p>
-        </div>
-
-        {/* Mode Selector Toggle: Team (8 Kelompok) vs Individu */}
-        <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              sound.click();
-              setPlayMode('team');
-              setError('');
-            }}
-            className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-              playMode === 'team'
-                ? 'bg-deepblue text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>8 Kelompok (32 Siswa)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              sound.click();
-              setPlayMode('individual');
-              setError('');
-            }}
-            className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-              playMode === 'individual'
-                ? 'bg-deepblue text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <User className="w-4 h-4" />
-            <span>Mode Individu</span>
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-bold flex items-center gap-2">
-            <span>⚠️</span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
           
-          {/* Class Selector */}
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
-              Kelas <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-electric text-sm font-semibold text-slate-800 bg-slate-50/50"
+          {onCancel && (
+            <button
+              onClick={() => {
+                sound.click();
+                onCancel();
+              }}
+              className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
             >
-              <option value="7-A">Kelas 7-A (32 Siswa)</option>
-              <option value="7-B">Kelas 7-B (32 Siswa)</option>
-              <option value="7-C">Kelas 7-C (32 Siswa)</option>
-              <option value="7-D">Kelas 7-D (32 Siswa)</option>
-              <option value="7-E">Kelas 7-E (32 Siswa)</option>
-              <option value="7-F">Kelas 7-F (32 Siswa)</option>
-              <option value="7-G">Kelas 7-G (32 Siswa)</option>
-              <option value="7-H">Kelas 7-H (32 Siswa)</option>
-              <option value="VII SMP">VII SMP (Umum)</option>
-            </select>
-          </div>
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
-          {/* TEAM MODE SELECTION */}
-          {playMode === 'team' ? (
+        {/* Modal Body with Form */}
+        <div className="overflow-y-auto p-5 sm:p-7 space-y-6">
+          
+          <form onSubmit={handleValidationAndSubmit} className="space-y-6">
+
+            {/* 1. Pilih Kelompok (8 Kelompok dalam bentuk kartu menarik) */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold uppercase text-slate-700 tracking-wider">
-                  Pilih Kelompok Bertanding <span className="text-red-500">*</span>
+                <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+                  <span>1. Pilih Kelompok:</span>
+                  <span className="text-red-500">*</span>
                 </label>
-                {onOpenTeamsRoster && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.click();
-                      onOpenTeamsRoster();
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Tersedia tepat 8 kelompok
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {EIGHT_GROUPS.map((grp) => {
+                  const isSelected = selectedGroupId === grp.id;
+                  return (
+                    <button
+                      key={grp.id}
+                      type="button"
+                      onClick={() => handleSelectGroup(grp.id)}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-deepblue text-white border-deepblue shadow-md ring-2 ring-electric'
+                          : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200 text-slate-800'
+                      }`}
+                    >
+                      {/* Selected Indicator Badge */}
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 text-electric">
+                          <CheckCircle2 className="w-4 h-4 fill-electric text-deepblue" />
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="text-xl mb-1">{grp.badge}</div>
+                        <div className={`font-black text-xs leading-tight ${isSelected ? 'text-white' : 'text-navy-950'}`}>
+                          {grp.name}
+                        </div>
+                        <div className={`text-[10px] font-semibold truncate mt-0.5 ${isSelected ? 'text-electric' : 'text-slate-500'}`}>
+                          {grp.themeName}
+                        </div>
+                      </div>
+
+                      <div className={`text-[9px] mt-2 pt-1 border-t ${isSelected ? 'border-white/20 text-slate-200' : 'border-slate-200 text-slate-400'} truncate`}>
+                        {grp.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Pengisian Identitas Pemain (Nama Lengkap & Nomor Absen) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                2. Identitas Pemain (Ketik Sendiri):
+              </div>
+
+              {/* Nama Lengkap */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nama Lengkap <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={50}
+                    placeholder="Ketik nama lengkap sendiri..."
+                    value={namaLengkap}
+                    onChange={(e) => {
+                      setNamaLengkap(e.target.value);
+                      if (errors.nama) setErrors((prev) => ({ ...prev, nama: null }));
                     }}
-                    className="text-xs font-bold text-deepblue hover:underline"
-                  >
-                    Lihat Matriks Lengkap 8 Tim
-                  </button>
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-semibold bg-white transition-all focus:outline-none focus:ring-2 ${
+                      errors.nama
+                        ? 'border-red-400 focus:ring-red-200 text-red-900'
+                        : 'border-slate-300 focus:ring-electric focus:border-transparent text-slate-800'
+                    }`}
+                  />
+                </div>
+                {errors.nama && (
+                  <p className="mt-1 text-[11px] font-bold text-red-500">{errors.nama}</p>
                 )}
               </div>
 
-              {/* 8 Team Quick Buttons */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                {teams.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      sound.click();
-                      setSelectedTeamId(t.id);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                      selectedTeamId === t.id
-                        ? 'bg-deepblue text-white border-deepblue shadow-sm ring-2 ring-electric'
-                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-lg">{t.badge}</span>
-                      <span className={`text-[10px] font-mono font-bold ${selectedTeamId === t.id ? 'text-electric' : 'text-slate-400'}`}>
-                        Tim #{t.id}
-                      </span>
-                    </div>
-                    <div className="font-bold text-xs truncate leading-tight">
-                      {t.teamName}
-                    </div>
-                    <div className={`text-[10px] truncate ${selectedTeamId === t.id ? 'text-slate-200' : 'text-slate-400'}`}>
-                      {t.name}
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Selected Team Members Preview Card */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{currentSelectedTeam.badge}</span>
-                    <div>
-                      <h4 className="font-black text-navy-950 text-sm">
-                        {currentSelectedTeam.name} — {currentSelectedTeam.teamName}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 italic">
-                        "{currentSelectedTeam.motto}"
-                      </p>
-                    </div>
+              {/* Nomor Absen */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nomor Absen <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Hash className="w-4 h-4" />
                   </div>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="100"
+                    placeholder="Ketik nomor absen (angka positif)..."
+                    value={nomorAbsen}
+                    onChange={(e) => {
+                      setNomorAbsen(e.target.value);
+                      if (errors.absen) setErrors((prev) => ({ ...prev, absen: null }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-semibold bg-white transition-all focus:outline-none focus:ring-2 ${
+                      errors.absen
+                        ? 'border-red-400 focus:ring-red-200 text-red-900'
+                        : 'border-slate-300 focus:ring-electric focus:border-transparent text-slate-800'
+                    }`}
+                  />
+                </div>
+                {errors.absen && (
+                  <p className="mt-1 text-[11px] font-bold text-red-500">{errors.absen}</p>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Ringkasan Konfirmasi Sebelum Mulai */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-deepblue mb-2 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Ringkasan Konfirmasi Identitas & Kelompok:</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="p-2.5 bg-white rounded-xl border border-blue-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Kelompok</span>
+                  <strong className="text-navy-950 font-black text-sm flex items-center gap-1 mt-0.5">
+                    <span>{selectedGroup.badge}</span>
+                    <span>{selectedGroup.name}</span>
+                  </strong>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                  {currentSelectedTeam.members.map((m, idx) => (
-                    <div key={idx} className="p-2 rounded-xl bg-white border border-slate-200">
-                      <div className="text-[9px] text-deepblue font-bold uppercase truncate">
-                        {m.role}
-                      </div>
-                      <div className="font-bold text-slate-800 text-xs truncate">
-                        {m.name} <span className="font-normal text-slate-400 font-mono">({m.absentNo})</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="p-2.5 bg-white rounded-xl border border-blue-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Nama Lengkap</span>
+                  <strong className="text-navy-950 font-bold text-xs truncate block mt-0.5">
+                    {namaLengkap.trim() || <span className="text-slate-400 font-normal italic">[Belum diisi]</span>}
+                  </strong>
+                </div>
+
+                <div className="p-2.5 bg-white rounded-xl border border-blue-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Nomor Absen</span>
+                  <strong className="text-navy-950 font-mono font-bold text-sm block mt-0.5">
+                    {nomorAbsen ? `No. ${nomorAbsen}` : <span className="text-slate-400 font-normal italic font-sans">[Belum diisi]</span>}
+                  </strong>
                 </div>
               </div>
             </div>
-          ) : (
-            /* INDIVIDUAL MODE SELECTION */
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
-                  Nama Lengkap Siswa <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={40}
-                  placeholder="Contoh: Raditya Pratama"
-                  value={individualName}
-                  onChange={(e) => {
-                    setIndividualName(e.target.value);
-                    if (error) setError('');
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-electric text-sm font-semibold text-slate-800 placeholder:text-slate-400 bg-slate-50/50"
-                />
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-700 tracking-wider mb-1.5">
-                  Nomor Absen (1–32) <span className="text-slate-400 font-normal lowercase">(opsional)</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="32"
-                  placeholder="Misal: 14"
-                  value={studentNumber}
-                  onChange={(e) => setStudentNumber(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-electric text-sm font-semibold text-slate-800 placeholder:text-slate-400 bg-slate-50/50"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Submit Action */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-deepblue to-blue-700 hover:from-navy-900 hover:to-deepblue text-white font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 group"
-            >
-              <span>{playMode === 'team' ? `Masuk sebagai ${currentSelectedTeam.name}` : 'Simpan & Masuk ke Dashboard'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            {onCancel && (
+            {/* 4. Tombol "Konfirmasi dan Mulai" */}
+            <div className="pt-1">
               <button
-                type="button"
-                onClick={() => {
-                  sound.click();
-                  onCancel();
-                }}
-                className="w-full mt-2 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                type="submit"
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-deepblue via-blue-700 to-electric hover:from-navy-900 hover:to-deepblue text-white font-black text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 group"
               >
-                Batal
+                <span>Konfirmasi dan Mulai</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
-            )}
-          </div>
 
-        </form>
+              <p className="text-[11px] text-slate-400 text-center mt-2.5 italic">
+                Setiap pemain memiliki catatan nilai sendiri dan akan berkontribusi pada rata-rata nilai kelompoknya.
+              </p>
+            </div>
+
+          </form>
+
+        </div>
 
       </div>
     </div>

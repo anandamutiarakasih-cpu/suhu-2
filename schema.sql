@@ -3,14 +3,11 @@
 -- Mata Pelajaran: IPA Kelas VII SMP — Materi Pokok: SUHU
 -- ============================================================================
 
--- 1. Enable UUID Extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- ============================================================================
--- 2. TABLE: game_sessions (Sesi Permainan yang Dibuat Guru/Admin)
+-- 1. TABLE: game_sessions (Sesi Permainan yang Dibuat Guru/Admin)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.game_sessions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_code VARCHAR(10) UNIQUE NOT NULL,
   title VARCHAR(120) NOT NULL DEFAULT 'Sesi Thermo Champions',
   status VARCHAR(20) NOT NULL DEFAULT 'waiting', -- 'waiting', 'started', 'paused', 'completed'
@@ -21,10 +18,10 @@ CREATE TABLE IF NOT EXISTS public.game_sessions (
 );
 
 -- ============================================================================
--- 3. TABLE: session_groups (Data 8 Kelompok Per Sesi)
+-- 2. TABLE: session_groups (Data 8 Kelompok Per Sesi)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.session_groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
   group_number INTEGER NOT NULL CHECK (group_number BETWEEN 1 AND 8),
   group_name VARCHAR(100) NOT NULL,
@@ -49,10 +46,10 @@ CREATE TABLE IF NOT EXISTS public.session_groups (
 );
 
 -- ============================================================================
--- 4. TABLE: group_submissions (Pencegahan Jawaban & Skor Ganda)
+-- 3. TABLE: group_submissions (Pencegahan Jawaban & Skor Ganda)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.group_submissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
   group_number INTEGER NOT NULL CHECK (group_number BETWEEN 1 AND 8),
   mode VARCHAR(20) NOT NULL CHECK (mode IN ('quiz', 'memory', 'calc')),
@@ -70,31 +67,29 @@ CREATE INDEX IF NOT EXISTS idx_groups_session ON public.session_groups(session_i
 CREATE INDEX IF NOT EXISTS idx_submissions_group ON public.group_submissions(session_id, group_number);
 
 -- ============================================================================
--- 5. SUPABASE REALTIME REPLICATION SETUP
+-- 4. SUPABASE REALTIME REPLICATION SETUP
 -- ============================================================================
--- Aktifkan Realtime untuk sinkronisasi live antarkelompok
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables 
-    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'game_sessions'
-  ) THEN
+  -- Pastikan publikasi supabase_realtime ada
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+
+  BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.game_sessions;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables 
-    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'session_groups'
-  ) THEN
+  BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.session_groups;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_publication_tables 
-    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'group_submissions'
-  ) THEN
+  BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.group_submissions;
-  END IF;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
 END $$;
 
 -- Set full replica identity for realtime update payloads

@@ -57,6 +57,8 @@ Sistem kini mendukung **Turnamen Multiplayer Online Real-Time** yang dapat dimai
    - Realtime publication `supabase_realtime`
    - Kebijakan Row Level Security (RLS)
    - Fungsi RPC `get_server_time()` untuk sinkronisasi waktu server
+   - Fungsi RPC `submit_group_answer(...)` untuk validasi jawaban di sisi server & anti-cheat
+   - Fungsi RPC `get_session_leaderboard(...)` untuk kalkulasi peringkat tie-break otomatis (skor tertinggi -> durasi tercepat -> peringkat sama jika identik)
 
 ### Langkah 2: Konfigurasi Supabase URL
 Publishable key sudah terpasang:

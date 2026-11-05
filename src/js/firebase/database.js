@@ -237,11 +237,19 @@ class RealtimeDatabaseEngine {
     if (cfg && cfg.databaseURL) {
       try {
         const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
+        // Save under both clean code (TC8921) and display code (TC-8921)
         await fetch(`${cleanDbUrl}/sessions/${code}.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(sessionData)
         });
+        if (sessionCode !== code) {
+          fetch(`${cleanDbUrl}/sessions/${encodeURIComponent(sessionCode)}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sessionData)
+          }).catch(() => {});
+        }
       } catch (err) {
         console.warn('Direct RTDB REST write note:', err.message);
       }
@@ -269,13 +277,61 @@ class RealtimeDatabaseEngine {
   }
 
   /**
-   * GET SESSION BY CODE (Firebase RTDB -> Direct REST -> Cloud Relay -> LocalStorage)
+   * GET SESSION BY CODE (Firebase RTDB -> Direct REST Multi-Match -> Cloud Relay -> LocalStorage)
    */
   async getSession(rawCode) {
+    if (!rawCode) return null;
     const code = this.cleanCode(rawCode);
     if (!code) return null;
 
-    // 1. Try Firebase RTDB SDK
+    // 1. Direct REST GET from Firebase RTDB with Multi-Format Matching
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      try {
+        const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
+        
+        // A. Try clean code (e.g. TC7890 or SUHU01)
+        let res = await fetch(`${cleanDbUrl}/sessions/${code}.json`);
+        let val = res.ok ? await res.json() : null;
+
+        // B. Try raw exact code if different (e.g. TC-7890)
+        const rawTrim = encodeURIComponent(String(rawCode).trim());
+        if ((!val || !val.code) && rawTrim !== code) {
+          res = await fetch(`${cleanDbUrl}/sessions/${rawTrim}.json`);
+          val = res.ok ? await res.json() : null;
+        }
+
+        // C. Fallback: Scan /sessions.json to match case-insensitively & flexibly
+        if (!val || !val.code) {
+          const allRes = await fetch(`${cleanDbUrl}/sessions.json`);
+          if (allRes.ok) {
+            const allSessions = await allRes.json();
+            if (allSessions && typeof allSessions === 'object') {
+              for (const [key, s] of Object.entries(allSessions)) {
+                if (!s) continue;
+                const kClean = this.cleanCode(key);
+                const sCode = this.cleanCode(s.code);
+                const sSessionCode = this.cleanCode(s.sessionCode);
+                const sId = this.cleanCode(s.id);
+                if (kClean === code || sCode === code || sSessionCode === code || sId === code) {
+                  val = s;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (val && (val.code || val.sessionCode || val.title)) {
+          try { localStorage.setItem(`tc_session_${code}`, JSON.stringify(val)); } catch (e) {}
+          return val;
+        }
+      } catch (e) {
+        console.warn('REST getSession error:', e);
+      }
+    }
+
+    // 2. Try Firebase RTDB SDK
     if (this.db) {
       try {
         const sRef = ref(this.db, `sessions/${code}`);
@@ -288,24 +344,8 @@ class RealtimeDatabaseEngine {
           return val;
         }
       } catch (e) {
-        console.warn('RTDB SDK getSession error, trying REST:', e.message);
+        console.warn('RTDB SDK getSession error:', e.message);
       }
-    }
-
-    // 2. Direct REST GET from Firebase RTDB
-    const cfg = getFirebaseConfig();
-    if (cfg && cfg.databaseURL) {
-      try {
-        const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
-        const res = await fetch(`${cleanDbUrl}/sessions/${code}.json`);
-        if (res.ok) {
-          const val = await res.json();
-          if (val && (val.code === code || val.sessionCode)) {
-            try { localStorage.setItem(`tc_session_${code}`, JSON.stringify(val)); } catch (e) {}
-            return val;
-          }
-        }
-      } catch (e) {}
     }
 
     // 3. Try Global Cloud Relay
@@ -380,19 +420,37 @@ class RealtimeDatabaseEngine {
     const claimedGroup = session.teams[groupKey];
     this.saveTeamSession(code, num, claimedGroup.groupName);
 
-    // Push to Firebase RTDB
+    // 1. Direct REST write to Firebase RTDB
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      try {
+        const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
+        fetch(`${cleanDbUrl}/sessions/${code}/teams/${groupKey}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(claimedGroup)
+        }).catch(() => {});
+        fetch(`${cleanDbUrl}/sessions/${code}/teams/team_${num}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(claimedGroup)
+        }).catch(() => {});
+      } catch (err) {}
+    }
+
+    // 2. Push to Firebase RTDB SDK
     if (this.db) {
       try {
         const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
-        await set(teamRef, claimedGroup);
+        set(teamRef, claimedGroup).catch(() => {});
         const teamAltRef = ref(this.db, `sessions/${code}/teams/team_${num}`);
-        await set(teamAltRef, claimedGroup);
+        set(teamAltRef, claimedGroup).catch(() => {});
       } catch (err) {
         console.warn('Firebase team set error:', err.message);
       }
     }
 
-    // Broadcast across all layers
+    // 3. Broadcast across all layers
     this.notifySessionUpdate(code, session);
 
     return {

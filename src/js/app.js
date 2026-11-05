@@ -79,13 +79,35 @@ class StudentApp {
       });
     });
 
-    // Check session code button
+    // Check session code button & input listeners
     const btnCheckCode = document.getElementById('btn-check-session-code');
+    const inputCode = document.getElementById('input-session-code');
+
     if (btnCheckCode) {
       btnCheckCode.addEventListener('click', () => {
         sounds.click();
         const input = document.getElementById('input-session-code');
         if (input) this.checkSessionCode(input.value);
+      });
+    }
+
+    if (inputCode) {
+      inputCode.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          sounds.click();
+          this.checkSessionCode(inputCode.value);
+        }
+      });
+      let checkDebounce = null;
+      inputCode.addEventListener('input', () => {
+        const val = (inputCode.value || '').trim();
+        if (val.length >= 3) {
+          clearTimeout(checkDebounce);
+          checkDebounce = setTimeout(() => {
+            this.checkSessionCode(val);
+          }, 450);
+        }
       });
     }
 

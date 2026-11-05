@@ -544,6 +544,11 @@ class ThermoChampionsApp {
       { nama: '', nomorAbsen: '' }
     ];
 
+    // Multiplayer Online State (Supabase Realtime)
+    this.onlineSession = null;
+    this.onlineGroups = [];
+    this.realtimeChannel = null;
+
     // Mode 1 state
     this.quizIndex = 0;
     this.quizSelected = null;
@@ -578,7 +583,7 @@ class ThermoChampionsApp {
     this.init();
   }
 
-  init() {
+  async init() {
     this.render8GroupButtons();
     this.renderDynamicMembersRows();
     this.updateSummaryBox();
@@ -586,13 +591,100 @@ class ThermoChampionsApp {
     this.setupThermometerSimulator();
     this.setupFormulaCalculator();
 
-    // Check active group
+    // Check active group & online session restoration
+    await this.restoreSessionState();
+
     if (this.currentGroup) {
       this.updateNavbarGroupChip();
-      this.showView('dashboard');
-      this.renderDashboard();
+      if (this.currentGroup.statusPermainan === 'in_lobby' && this.onlineSession && this.onlineSession.status === 'waiting') {
+        this.showView('lobby');
+        this.renderLobbyView();
+      } else {
+        this.showView('dashboard');
+        this.renderDashboard();
+      }
     } else {
       this.showView('landing');
+    }
+  }
+
+  async restoreSessionState() {
+    const savedCode = localStorage.getItem('thermo_online_session_code');
+    if (savedCode) {
+      try {
+        const session = await ThermoDB.getSessionByCode(savedCode);
+        if (session) {
+          this.onlineSession = session;
+          this.updateNavbarSessionPill(session.session_code);
+          await this.syncSessionGroups();
+          this.setupRealtimeListeners(session.id);
+        }
+      } catch (e) {
+        console.warn('Could not restore online session state:', e);
+      }
+    }
+  }
+
+  async checkSessionCode(inputCode) {
+    const codeInput = document.getElementById('input-session-code');
+    const code = (inputCode || (codeInput ? codeInput.value : '') || '').trim().toUpperCase();
+    const fb = document.getElementById('session-code-feedback');
+    const tag = document.getElementById('session-status-tag');
+    if (!code) {
+      if (fb) fb.textContent = 'Masukkan kode sesi dari Guru/Admin (misal: TC-8899).';
+      return false;
+    }
+
+    try {
+      if (fb) fb.textContent = 'Memeriksa kode sesi ke database...';
+      const session = await ThermoDB.getSessionByCode(code);
+      if (!session) {
+        if (fb) fb.innerHTML = `<span style="color:var(--error);">Kode sesi "${code}" tidak ditemukan! Periksa kembali atau tanyakan Guru.</span>`;
+        if (tag) tag.textContent = 'TIDAK DITEMUKAN';
+        sound.wrong();
+        return false;
+      }
+
+      this.onlineSession = session;
+      localStorage.setItem('thermo_online_session_code', session.session_code);
+      this.updateNavbarSessionPill(session.session_code);
+      if (fb) fb.innerHTML = `<span style="color:var(--success); font-weight:700;">✓ Sesi Terhubung: "${session.title}" (${session.status.toUpperCase()})</span>`;
+      if (tag) {
+        tag.textContent = `TERHUBUNG [${session.session_code}]`;
+        tag.style.background = '#dcfce7';
+        tag.style.color = '#15803d';
+      }
+      sound.correct();
+
+      await this.syncSessionGroups();
+      this.render8GroupButtons();
+      return true;
+    } catch (err) {
+      if (fb) fb.textContent = 'Gagal memeriksa sesi: ' + (err.message || err);
+      return false;
+    }
+  }
+
+  async syncSessionGroups() {
+    if (!this.onlineSession) return;
+    try {
+      const groups = await ThermoDB.getGroups(this.onlineSession.id);
+      this.onlineGroups = groups;
+    } catch (e) {
+      console.warn('Error syncing session groups:', e);
+    }
+  }
+
+  updateNavbarSessionPill(code) {
+    const pill = document.getElementById('nav-session-pill');
+    const text = document.getElementById('nav-session-code');
+    if (pill && text) {
+      if (code) {
+        pill.style.display = 'inline-flex';
+        text.textContent = `SESI: ${code}`;
+      } else {
+        pill.style.display = 'none';
+      }
     }
   }
 
@@ -633,26 +725,52 @@ class ThermoChampionsApp {
     if (!container) return;
     container.innerHTML = '';
 
+    const myToken = typeof getDeviceToken === 'function' ? getDeviceToken() : '';
+    const occupiedMap = {};
+    if (this.onlineGroups && this.onlineGroups.length > 0) {
+      this.onlineGroups.forEach(g => {
+        occupiedMap[g.group_number] = g;
+      });
+    }
+
     EIGHT_GROUPS.forEach(grp => {
       const isSelected = this.selectedGroupId === grp.id;
+      const occupiedBy = occupiedMap[grp.id];
+      const isOccupiedByOther = occupiedBy && occupiedBy.device_token !== myToken;
+
       const btn = document.createElement('div');
-      btn.className = `group-card-btn ${isSelected ? 'selected' : ''}`;
+      btn.className = `group-card-btn ${isSelected ? 'selected' : ''} ${isOccupiedByOther ? 'occupied' : ''}`;
+
+      let subtitle = grp.theme;
+      if (isOccupiedByOther) {
+        subtitle = `⚠️ Sudah diambil device lain: "${occupiedBy.group_name}"`;
+      } else if (occupiedBy && occupiedBy.device_token === myToken) {
+        subtitle = `✓ Perangkat Anda terdaftar: "${occupiedBy.group_name}"`;
+      }
+
       btn.innerHTML = `
         <div class="group-card-content">
           <div class="group-card-icon">${grp.badge}</div>
           <div>
-            <div class="group-card-title">${grp.name.toUpperCase()}</div>
-            <div class="group-card-subtitle">${grp.theme}</div>
+            <div class="group-card-title">${grp.name.toUpperCase()} ${isOccupiedByOther ? '(TERPAKAI)' : ''}</div>
+            <div class="group-card-subtitle">${subtitle}</div>
           </div>
         </div>
         <div class="group-card-check">${isSelected ? '✓' : ''}</div>
       `;
+
       btn.addEventListener('click', () => {
+        if (isOccupiedByOther) {
+          sound.wrong();
+          alert(`Kelompok ${grp.id} sudah diambil oleh perangkat lain pada sesi ini! Silakan pilih nomor kelompok yang masih kosong.`);
+          return;
+        }
         sound.click();
         this.selectedGroupId = grp.id;
         this.render8GroupButtons();
         this.updateSummaryBox();
       });
+
       container.appendChild(btn);
     });
 
@@ -743,7 +861,7 @@ class ThermoChampionsApp {
     }
   }
 
-  confirmAndStartGroup() {
+  async confirmAndStartGroup() {
     const namaKelompokInput = document.getElementById('input-nama-kelompok');
     const namaKelompok = namaKelompokInput ? namaKelompokInput.value.trim() : '';
 
@@ -782,10 +900,19 @@ class ThermoChampionsApp {
 
     const selectedGroupDef = EIGHT_GROUPS.find(g => g.id === this.selectedGroupId) || EIGHT_GROUPS[0];
 
+    // Check if session code was typed
+    const sessionCodeInput = document.getElementById('input-session-code');
+    const sessionCode = sessionCodeInput ? sessionCodeInput.value.trim().toUpperCase() : '';
+    if (sessionCode && !this.onlineSession) {
+      const ok = await this.checkSessionCode(sessionCode);
+      if (!ok) return;
+    }
+
     // Buat data kelompok sesuai struktur Section 8
     const groupRecord = {
       groupId: `tc_kelompok_${selectedGroupDef.id}`,
       nomorKelompok: selectedGroupDef.name,
+      nomorKelompokInt: selectedGroupDef.id,
       namaKelompok: namaKelompok,
       badge: selectedGroupDef.badge,
       theme: selectedGroupDef.theme,
@@ -797,7 +924,7 @@ class ThermoChampionsApp {
       predikat: 'TEMPERATURE ROOKIE',
       akurasi: 0,
       waktuPenyelesaian: 0,
-      statusPermainan: 'sedang_bermain',
+      statusPermainan: 'in_lobby',
       tanggalPermainan: new Date().toISOString(),
       modesCompleted: {
         quiz: false,
@@ -811,6 +938,44 @@ class ThermoChampionsApp {
       }
     };
 
+    // Online Multiplayer Join via Supabase
+    if (this.onlineSession) {
+      try {
+        const joined = await ThermoDB.joinGroup(
+          this.onlineSession.id,
+          selectedGroupDef.id,
+          namaKelompok,
+          validMembers,
+          selectedGroupDef.badge,
+          selectedGroupDef.theme
+        );
+        groupRecord.dbId = joined.id;
+        this.currentGroup = groupRecord;
+        saveGroupRecordToStorage(groupRecord);
+        localStorage.setItem('thermo_online_session_code', this.onlineSession.session_code);
+        this.updateNavbarGroupChip();
+        this.setupRealtimeListeners(this.onlineSession.id);
+
+        if (this.onlineSession.status === 'started') {
+          this.totalTimerStart = this.onlineSession.started_at ? new Date(this.onlineSession.started_at).getTime() : Date.now();
+          sound.fanfare();
+          this.showView('dashboard');
+          this.renderDashboard();
+        } else {
+          sound.click();
+          this.showView('lobby');
+          this.renderLobbyView();
+        }
+        return;
+      } catch (err) {
+        sound.wrong();
+        alert('Gagal bergabung ke sesi turnamen: ' + (err.message || err));
+        return;
+      }
+    }
+
+    // Offline / Local Practice Mode fallback
+    groupRecord.statusPermainan = 'sedang_bermain';
     saveGroupRecordToStorage(groupRecord);
     this.currentGroup = groupRecord;
     this.totalTimerStart = Date.now();
@@ -819,6 +984,92 @@ class ThermoChampionsApp {
     this.updateNavbarGroupChip();
     this.showView('dashboard');
     this.renderDashboard();
+  }
+
+  renderLobbyView() {
+    if (!this.onlineSession || !this.currentGroup) return;
+
+    document.getElementById('lobby-session-code').textContent = this.onlineSession.session_code;
+    document.getElementById('lobby-team-name').textContent = `${this.currentGroup.nomorKelompok} (${this.currentGroup.namaKelompok})`;
+
+    const membersContainer = document.getElementById('lobby-members-list');
+    if (membersContainer) {
+      membersContainer.innerHTML = this.currentGroup.anggota.map(m => `
+        <span style="background:#e0f2fe; color:var(--deepblue); padding:0.2rem 0.5rem; border-radius:0.25rem; font-size:0.75rem; font-weight:700;">
+          ${m.nama} (No. ${m.nomorAbsen})
+        </span>
+      `).join('');
+    }
+
+    this.renderLobbySlots();
+  }
+
+  renderLobbySlots() {
+    const container = document.getElementById('lobby-slots-display');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const groupMap = {};
+    if (this.onlineGroups) {
+      this.onlineGroups.forEach(g => { groupMap[g.group_number] = g; });
+    }
+
+    for (let i = 1; i <= 8; i++) {
+      const g = groupMap[i];
+      const isTaken = Boolean(g);
+      const isSelf = this.currentGroup && (this.currentGroup.nomorKelompokInt === i || this.currentGroup.nomorKelompok === `Kelompok ${i}`);
+
+      const slot = document.createElement('div');
+      slot.className = `lobby-slot-card ${isSelf ? 'self' : (isTaken ? 'taken' : '')}`;
+      slot.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Kelompok ${i}</strong>
+          <span class="slot-tag" style="${isSelf ? 'background:var(--electric); color:var(--navy);' : (isTaken ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#94a3b8;')}">
+            ${isSelf ? 'TIM ANDA' : (isTaken ? 'TERHUBUNG' : 'KOSONG')}
+          </span>
+        </div>
+        <div style="font-size:0.75rem; color:${isTaken ? 'var(--deepblue)' : 'var(--slate-400)'}; font-weight:700; margin-top:0.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          ${isTaken ? g.group_name : 'Menunggu device...'}
+        </div>
+      `;
+      container.appendChild(slot);
+    }
+  }
+
+  setupRealtimeListeners(sessionId) {
+    if (this.realtimeChannel) {
+      ThermoDB.unsubscribe(this.realtimeChannel);
+    }
+
+    this.realtimeChannel = ThermoDB.subscribeToSession(
+      sessionId,
+      (sessionUpdate) => {
+        if (!sessionUpdate) return;
+        this.onlineSession = { ...this.onlineSession, ...sessionUpdate };
+
+        // Check if Admin pressed "Mulai Bersama"
+        if (sessionUpdate.status === 'started') {
+          sound.fanfare();
+          launchConfetti();
+          if (this.currentGroup) {
+            this.currentGroup.statusPermainan = 'playing';
+            this.totalTimerStart = sessionUpdate.started_at ? new Date(sessionUpdate.started_at).getTime() : Date.now();
+            this.showView('dashboard');
+            this.renderDashboard();
+          }
+        } else if (sessionUpdate.status === 'paused') {
+          alert('Guru menjeda permainan seluruh kelompok sementara.');
+        } else if (sessionUpdate.status === 'completed') {
+          alert('Turnamen resmi diselesaikan oleh Guru.');
+        }
+      },
+      () => {
+        this.syncSessionGroups().then(() => {
+          this.renderLobbySlots();
+          this.render8GroupButtons();
+        });
+      }
+    );
   }
 
   // ========================================================================
@@ -971,6 +1222,20 @@ class ThermoChampionsApp {
       isCorrect,
       isTimeout
     });
+
+    // Multiplayer Online: Submit Answer to Supabase (Anti-Duplicate Protected)
+    if (this.onlineSession && this.currentGroup) {
+      const pts = isCorrect ? 3.5 : 0;
+      ThermoDB.submitAnswer(
+        this.onlineSession.id,
+        this.currentGroup.nomorKelompokInt || this.selectedGroupId,
+        'quiz',
+        q.id,
+        key || 'TIMEOUT',
+        isCorrect,
+        pts
+      );
+    }
 
     // Style buttons
     const btns = document.querySelectorAll('#quiz-options-container .option-btn');
@@ -1154,6 +1419,20 @@ class ThermoChampionsApp {
       isCorrect
     });
 
+    // Multiplayer Online: Submit Recall Answer to Supabase (Anti-Duplicate Protected)
+    if (this.onlineSession && this.currentGroup) {
+      const pts = isCorrect ? 3 : 0;
+      ThermoDB.submitAnswer(
+        this.onlineSession.id,
+        this.currentGroup.nomorKelompokInt || this.selectedGroupId,
+        'memory',
+        rq.id,
+        ans || 'TIMEOUT',
+        isCorrect,
+        pts
+      );
+    }
+
     const btns = document.querySelectorAll('#recall-options-container .option-btn');
     btns.forEach(b => {
       b.disabled = true;
@@ -1294,6 +1573,22 @@ class ThermoChampionsApp {
       details
     });
 
+    // Multiplayer Online: Submit Calculation Steps to Supabase (Anti-Duplicate Protected)
+    if (this.onlineSession && this.currentGroup) {
+      details.forEach((d, idx) => {
+        const pts = d.isCorrect ? d.weight : 0;
+        ThermoDB.submitAnswer(
+          this.onlineSession.id,
+          this.currentGroup.nomorKelompokInt || this.selectedGroupId,
+          'calc',
+          `stage_${st.stage}_step_${idx}`,
+          String(d.userVal || 'EMPTY'),
+          d.isCorrect,
+          pts
+        );
+      });
+    }
+
     // Render solution
     const solBox = document.getElementById('calc-solution-box');
     solBox.style.display = 'block';
@@ -1368,10 +1663,46 @@ class ThermoChampionsApp {
 
       saveGroupRecordToStorage(this.currentGroup);
       this.updateNavbarGroupChip();
+
+      // Multiplayer Online: Update Final Results in Supabase
+      if (this.onlineSession && this.currentGroup) {
+        ThermoDB.updateGroupProgress(
+          this.onlineSession.id,
+          this.currentGroup.nomorKelompokInt || this.selectedGroupId,
+          {
+            score_quiz: this.currentGroup.skorStarChamp,
+            score_memory: this.currentGroup.skorMemoryMadness,
+            score_calc: this.currentGroup.skorNumberChains,
+            final_score: this.currentGroup.nilaiAkhir,
+            accuracy: this.currentGroup.akurasi,
+            duration_seconds: this.currentGroup.waktuPenyelesaian,
+            predicate: this.currentGroup.predikat,
+            status: 'finished'
+          }
+        );
+      }
+
       this.showResultsView();
     } else {
       saveGroupRecordToStorage(this.currentGroup);
       this.updateNavbarGroupChip();
+
+      // Multiplayer Online: Update Intermediate Score in Supabase
+      if (this.onlineSession && this.currentGroup) {
+        ThermoDB.updateGroupProgress(
+          this.onlineSession.id,
+          this.currentGroup.nomorKelompokInt || this.selectedGroupId,
+          {
+            score_quiz: this.currentGroup.skorStarChamp,
+            score_memory: this.currentGroup.skorMemoryMadness,
+            score_calc: this.currentGroup.skorNumberChains,
+            final_score: this.currentGroup.nilaiAkhir,
+            predicate: this.currentGroup.predikat,
+            status: 'playing'
+          }
+        );
+      }
+
       this.showView('dashboard');
       this.renderDashboard();
     }
@@ -1432,17 +1763,42 @@ class ThermoChampionsApp {
   // ========================================================================
   // LEADERBOARD KELOMPOK (Murni Hasil 8 Kelompok)
   // ========================================================================
-  openLeaderboardModal() {
+  async openLeaderboardModal() {
     sound.click();
-    const data = getGroupLeaderboardData();
     const tbody = document.getElementById('leaderboard-tbody');
-    tbody.innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--slate-400);">Memuat peringkat terbaru...</td></tr>';
+    document.getElementById('modal-leaderboard').classList.add('active');
 
+    let data = [];
+    if (this.onlineSession) {
+      try {
+        const groups = await ThermoDB.getGroups(this.onlineSession.id);
+        data = groups.map(g => ({
+          nomorKelompok: `Kelompok ${g.group_number}`,
+          namaKelompok: g.group_name,
+          nilaiAkhir: g.final_score,
+          akurasi: g.accuracy,
+          waktuPenyelesaian: g.duration_seconds,
+          predikat: g.predicate,
+          status: g.status
+        })).sort((a, b) => {
+          if (b.nilaiAkhir !== a.nilaiAkhir) return b.nilaiAkhir - a.nilaiAkhir;
+          if (b.akurasi !== a.akurasi) return b.akurasi - a.akurasi;
+          return (a.waktuPenyelesaian || 99999) - (b.waktuPenyelesaian || 99999);
+        });
+      } catch (e) {
+        data = getGroupLeaderboardData();
+      }
+    } else {
+      data = getGroupLeaderboardData();
+    }
+
+    tbody.innerHTML = '';
     if (data.length === 0) {
       tbody.innerHTML = `
         <tr>
           <td colspan="6" style="text-align:center; padding:2rem; color:var(--slate-400);">
-            Belum ada kelompok yang menyelesaikan permainan. Mulailah bertanding bersama untuk mencatat rekor!
+            Belum ada kelompok yang mencatat rekor pada sesi ini. Mulailah bertanding untuk meraih peringkat!
           </td>
         </tr>
       `;
@@ -1471,8 +1827,6 @@ class ThermoChampionsApp {
         tbody.appendChild(tr);
       });
     }
-
-    document.getElementById('modal-leaderboard').classList.add('active');
   }
 
   // ========================================================================
@@ -1591,6 +1945,36 @@ class ThermoChampionsApp {
         this.render8GroupButtons();
       });
     });
+
+    // Check Session Code Button & Enter key
+    const btnCheckCode = document.getElementById('btn-check-session-code');
+    if (btnCheckCode) {
+      btnCheckCode.addEventListener('click', () => {
+        sound.click();
+        this.checkSessionCode();
+      });
+    }
+
+    const inputSessionCode = document.getElementById('input-session-code');
+    if (inputSessionCode) {
+      inputSessionCode.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          sound.click();
+          this.checkSessionCode();
+        }
+      });
+    }
+
+    // Leave Lobby Button
+    const btnLeaveLobby = document.getElementById('btn-leave-lobby');
+    if (btnLeaveLobby) {
+      btnLeaveLobby.addEventListener('click', () => {
+        sound.click();
+        this.showView('group-select');
+        this.render8GroupButtons();
+      });
+    }
 
     // Ganti Kelompok button
     document.getElementById('btn-change-group-choice').addEventListener('click', () => {

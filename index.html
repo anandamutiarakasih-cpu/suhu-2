@@ -15,6 +15,11 @@
   
   <!-- Pure CSS3 Stylesheet -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Supabase Client & Multiplayer Config (Pure Vanilla JS CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="supabase-client.js"></script>
 </head>
 <body>
 
@@ -38,6 +43,11 @@
 
       <!-- Navigation Actions -->
       <div class="nav-actions">
+        <!-- Live Session Code Pill -->
+        <div id="nav-session-pill" class="session-nav-pill" style="display:none;" title="Sesi Turnamen Terhubung">
+          <span>🔑</span> <span id="nav-session-code">SESI: -</span>
+        </div>
+
         <button type="button" id="btn-nav-leaderboard" class="btn-nav">
           <span>🏆</span> <span class="nav-label">Leaderboard</span>
         </button>
@@ -49,6 +59,11 @@
         <button type="button" id="btn-nav-help" class="btn-nav" title="Petunjuk Permainan">
           <span>❓</span> <span class="nav-label">Petunjuk</span>
         </button>
+
+        <!-- Link to Admin Guru -->
+        <a href="admin.html" target="_blank" class="btn-nav" title="Buka Dashboard Guru / Game Master" style="color:var(--orange);">
+          <span>👑</span> <span class="nav-label">Admin Guru</span>
+        </a>
 
         <!-- Sound Toggle -->
         <button type="button" id="btn-toggle-sound" class="btn-nav" title="Bisukan / Aktifkan Suara">
@@ -205,9 +220,28 @@
 
           <div class="group-select-body">
             
+            <!-- Step 0: Kode Sesi Turnamen Multiplayer dari Guru -->
+            <div style="background:#eff6ff; border:2px dashed #93c5fd; border-radius:1rem; padding:1.25rem; margin-bottom:1.5rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; flex-wrap:wrap; gap:0.5rem;">
+                <label class="form-label" for="input-session-code" style="color:var(--deepblue); font-size:0.9rem; margin-bottom:0;">
+                  🔑 Masukkan Kode Sesi Turnamen dari Guru:
+                </label>
+                <span id="session-status-tag" style="font-size:0.7rem; font-weight:800; background:#dbeafe; color:var(--deepblue); padding:0.15rem 0.5rem; border-radius:0.25rem;">ONLINE MULTIPLAYER</span>
+              </div>
+              <div style="display:flex; gap:0.5rem; align-items:center;">
+                <input type="text" id="input-session-code" class="form-input" placeholder="Contoh: TC-8899 atau SUHU01" maxlength="10" style="text-transform:uppercase; font-family:monospace; font-weight:900; font-size:1.15rem; letter-spacing:0.05em;" />
+                <button type="button" id="btn-check-session-code" class="btn-change-group" style="background:var(--navy); color:var(--white); border-color:var(--navy); padding:0.6rem 1rem;">
+                  Cek Sesi
+                </button>
+              </div>
+              <div id="session-code-feedback" style="font-size:0.75rem; color:var(--slate-500); margin-top:0.35rem;">
+                Ketik kode sesi yang diberikan Guru di depan kelas untuk bermain serentak bersama 8 kelompok.
+              </div>
+            </div>
+
             <!-- Step 1: Grid 2 Kolom x 4 Baris Pemilihan Kelompok -->
             <div class="section-label">
-              <span>1. PILIH SATU DARI 8 KELOMPOK</span>
+              <span>1. PILIH NOMOR KELOMPOK (1 s/d 8)</span>
               <span style="color:var(--error);">*</span>
             </div>
 
@@ -292,6 +326,69 @@
 
         </div>
 
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 2.5: RUANG TUNGGU (LOBBY MULTIPLAYER BERSAMA)
+         ==================================================================== -->
+    <section id="view-lobby" class="view-section">
+      <div class="container">
+        <div class="lobby-waiting-wrapper">
+          <div class="lobby-waiting-card">
+            <div class="lobby-radar">📡</div>
+            
+            <div class="lobby-sync-tag">
+              <span class="pulse-dot"></span>
+              <span>TERHUBUNG KE SERVER TURNAMEN REALTIME</span>
+            </div>
+
+            <h2 style="font-size:1.85rem; font-weight:900; color:var(--navy); margin-bottom:0.35rem;">
+              MENUNGGU GURU MEMULAI PERMAINAN
+            </h2>
+            <p style="color:var(--slate-600); font-size:0.95rem; max-width:540px; margin:0 auto 1.5rem;">
+              Kelompok Anda sudah siap di ruang tunggu. Seluruh 8 kelompok akan dimulai secara serentak ketika Guru menekan tombol <strong>"Mulai Bersama"</strong> di depan kelas.
+            </p>
+
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:1rem; padding:1.25rem; max-width:540px; margin:0 auto 2rem; text-align:left;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #dbeafe; padding-bottom:0.5rem; margin-bottom:0.75rem;">
+                <span style="font-size:0.75rem; color:var(--slate-500); font-weight:700;">KODE SESI:</span>
+                <span id="lobby-session-code" style="font-family:monospace; font-weight:900; color:var(--navy); font-size:1.1rem;">TC-XXXX</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #dbeafe; padding-bottom:0.5rem; margin-bottom:0.75rem;">
+                <span style="font-size:0.75rem; color:var(--slate-500); font-weight:700;">KELOMPOK ANDA:</span>
+                <span id="lobby-team-name" style="font-weight:800; color:var(--deepblue);">Kelompok 1 (The Thermo Squad)</span>
+              </div>
+              <div>
+                <span style="font-size:0.75rem; color:var(--slate-500); font-weight:700; display:block; margin-bottom:0.35rem;">ANGGOTA TIM:</span>
+                <div id="lobby-members-list" style="display:flex; flex-wrap:wrap; gap:0.35rem;">
+                  <!-- Dynamic badges -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Slots of 8 Groups in Lobby -->
+            <div style="border-top:1px solid var(--slate-200); padding-top:1.5rem;">
+              <div style="font-size:0.8rem; font-weight:800; color:var(--navy); text-transform:uppercase; margin-bottom:0.25rem;">
+                Status 8 Kelompok di Ruang Tunggu:
+              </div>
+              <div style="font-size:0.75rem; color:var(--slate-500); margin-bottom:1rem;">
+                Diperbarui secara real-time via Supabase
+              </div>
+
+              <div id="lobby-slots-display" class="lobby-grid-live">
+                <!-- 8 Slots rendered via JavaScript -->
+              </div>
+            </div>
+
+            <div style="margin-top:1.5rem;">
+              <button type="button" id="btn-leave-lobby" class="btn-change-group" style="color:var(--error); border-color:#fca5a5;">
+                ← Batalkan & Kembali ke Pemilihan Kelompok
+              </button>
+            </div>
+
+          </div>
+        </div>
       </div>
     </section>
 

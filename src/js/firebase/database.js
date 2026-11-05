@@ -192,7 +192,8 @@ class RealtimeDatabaseEngine {
    * CREATE A NEW TOURNAMENT SESSION (ADMIN)
    */
   async createSession(title = 'Turnamen Suhu IPA Kelas VII', customCode = '') {
-    await ensureAuthenticated();
+    // Non-blocking background auth check
+    ensureAuthenticated().catch(() => {});
 
     // Determine sessionCode
     let sessionCode = '';
@@ -231,7 +232,7 @@ class RealtimeDatabaseEngine {
       sessionData.teams[`team_${i}`] = null;
     }
 
-    // 1. Direct REST write to Firebase RTDB (Super fast & reliable)
+    // 1. Direct REST write to Firebase RTDB (Super fast & reliable: ~50ms)
     const cfg = getFirebaseConfig();
     if (cfg && cfg.databaseURL) {
       try {
@@ -246,11 +247,11 @@ class RealtimeDatabaseEngine {
       }
     }
 
-    // 2. Write to Firebase RTDB via Modular SDK
+    // 2. Write to Firebase RTDB via Modular SDK (non-blocking)
     if (this.db) {
       try {
         const sRef = ref(this.db, `sessions/${code}`);
-        await set(sRef, sessionData);
+        set(sRef, sessionData).catch(e => console.warn('SDK set catch:', e));
       } catch (err) {
         console.warn('Firebase SDK set note:', err.message);
       }

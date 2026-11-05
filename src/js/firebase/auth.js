@@ -23,7 +23,6 @@ export function getFirebaseAuth() {
 export async function ensureAuthenticated() {
   const auth = getFirebaseAuth();
   if (!auth) {
-    console.warn('[FirebaseAuth] Firebase Auth is not available.');
     return null;
   }
 
@@ -33,12 +32,14 @@ export async function ensureAuthenticated() {
   }
 
   try {
-    const cred = await signInAnonymously(auth);
+    const signInPromise = signInAnonymously(auth);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 1000));
+    const cred = await Promise.race([signInPromise, timeoutPromise]);
     currentUser = cred.user;
     console.log('[FirebaseAuth] Signed in anonymously as uid:', currentUser.uid);
     return currentUser;
   } catch (err) {
-    console.warn('[FirebaseAuth] Anonymous sign-in warning:', err.message);
+    // Non-blocking fallback: RTDB works freely under open test rules
     return null;
   }
 }

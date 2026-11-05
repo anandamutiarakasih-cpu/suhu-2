@@ -42,7 +42,7 @@ class AdminApp {
     this.bindEvents();
     this.loadFirebaseConfigUI();
 
-    await ensureAuthenticated();
+    ensureAuthenticated().catch(() => {});
     this.testDatabaseConnection();
 
     if (this.currentSessionId) {

@@ -22,7 +22,7 @@ import {
   resumeTournament,
   endTournament
 } from "./firebase/database.js";
-import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { sounds } from "./utils/sounds.js";
 import { showToast } from "./utils/ui.js";
 
@@ -159,16 +159,35 @@ class AdminApp {
   async handleSaveConfig() {
     sounds.click();
     const urlInput = document.getElementById('cfg-firebase-url') || document.getElementById('cfg-supabase-url');
-    const val = (urlInput?.value || '').trim();
-    if (!val) {
-      showToast('Masukkan URL Firebase Realtime Database!', 'error');
+    const rawVal = (urlInput?.value || '').trim();
+    if (!rawVal) {
+      showToast('Masukkan URL Database atau JSON Firebase Config!', 'error');
       return;
     }
 
-    const cfg = getFirebaseConfig();
-    cfg.databaseURL = val;
+    let cfg = getFirebaseConfig() || {};
+    if (rawVal.startsWith('{') && rawVal.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(rawVal);
+        cfg = { ...cfg, ...parsed };
+      } catch (e) {
+        showToast('Format JSON Firebase tidak valid!', 'error');
+        return;
+      }
+    } else if (rawVal.startsWith('https://')) {
+      cfg.databaseURL = rawVal;
+      const match = rawVal.match(/https:\/\/([a-zA-Z0-9-]+?)(?:-default-rtdb|\.firebaseio)/);
+      if (match && match[1]) {
+        cfg.projectId = match[1];
+        cfg.authDomain = `${match[1]}.firebaseapp.com`;
+      }
+    } else {
+      showToast('Masukkan URL Firebase yang valid (diawali https://)!', 'error');
+      return;
+    }
+
     setFirebaseConfig(cfg);
-    showToast('Konfigurasi Firebase diperbarui. Menguji koneksi...', 'info');
+    showToast('Konfigurasi Firebase diperbarui! Menguji koneksi...', 'success');
 
     setTimeout(() => {
       window.location.reload();
@@ -506,6 +525,10 @@ class AdminApp {
     sounds.click();
     const url = new URL('index.html', window.location.href);
     url.searchParams.set('code', this.currentSession.sessionCode);
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      url.searchParams.set('db', cfg.databaseURL);
+    }
     navigator.clipboard.writeText(url.toString()).then(() => {
       showToast('Link HP siswa disalin ke clipboard! Bagikan ke WhatsApp / Classroom.', 'success');
     });

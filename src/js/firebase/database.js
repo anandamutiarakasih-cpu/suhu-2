@@ -134,7 +134,7 @@ class RealtimeDatabaseEngine {
   async fetchFromCloudRelay(code) {
     if (!code) return null;
     try {
-      const res = await fetch(`https://ntfy.sh/tc_suhu_${code}/json?poll=1&since=all`);
+      const res = await fetch(`https://ntfy.sh/tc_suhu_${code}/json?poll=1&since=12h`);
       if (!res.ok) return null;
       const text = await res.text();
       const lines = text.trim().split('\n').filter(Boolean);

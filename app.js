@@ -548,6 +548,7 @@ class ThermoChampionsApp {
     this.onlineSession = null;
     this.onlineGroups = [];
     this.realtimeChannel = null;
+    this.heartbeatTimer = null;
 
     // Mode 1 state
     this.quizIndex = 0;
@@ -618,6 +619,9 @@ class ThermoChampionsApp {
           this.updateNavbarSessionPill(session.session_code);
           await this.syncSessionGroups();
           this.setupRealtimeListeners(session.id);
+          if (this.currentGroup) {
+            this.startHeartbeat();
+          }
         }
       } catch (e) {
         console.warn('Could not restore online session state:', e);
@@ -955,6 +959,7 @@ class ThermoChampionsApp {
         localStorage.setItem('thermo_online_session_code', this.onlineSession.session_code);
         this.updateNavbarGroupChip();
         this.setupRealtimeListeners(this.onlineSession.id);
+        this.startHeartbeat();
 
         if (this.onlineSession.status === 'started') {
           this.totalTimerStart = this.onlineSession.started_at ? new Date(this.onlineSession.started_at).getTime() : Date.now();
@@ -1070,6 +1075,27 @@ class ThermoChampionsApp {
         });
       }
     );
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    const sendPulse = () => {
+      if (this.onlineSession && this.currentGroup) {
+        const gNum = this.currentGroup.nomorKelompokInt || parseInt(String(this.currentGroup.nomorKelompok).replace(/\D/g, ''), 10);
+        if (gNum) {
+          ThermoDB.sendHeartbeat(this.onlineSession.id, gNum);
+        }
+      }
+    };
+    sendPulse();
+    this.heartbeatTimer = setInterval(sendPulse, 15000);
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   // ========================================================================
@@ -1772,7 +1798,7 @@ class ThermoChampionsApp {
     let data = [];
     if (this.onlineSession) {
       try {
-        const groups = await ThermoDB.getGroups(this.onlineSession.id);
+        const groups = await ThermoDB.getLeaderboard(this.onlineSession.id);
         data = groups.map(g => ({
           nomorKelompok: `Kelompok ${g.group_number}`,
           namaKelompok: g.group_name,
@@ -1780,12 +1806,9 @@ class ThermoChampionsApp {
           akurasi: g.accuracy,
           waktuPenyelesaian: g.duration_seconds,
           predikat: g.predicate,
-          status: g.status
-        })).sort((a, b) => {
-          if (b.nilaiAkhir !== a.nilaiAkhir) return b.nilaiAkhir - a.nilaiAkhir;
-          if (b.akurasi !== a.akurasi) return b.akurasi - a.akurasi;
-          return (a.waktuPenyelesaian || 99999) - (b.waktuPenyelesaian || 99999);
-        });
+          status: g.status,
+          rank: g.rank
+        }));
       } catch (e) {
         data = getGroupLeaderboardData();
       }
@@ -1803,26 +1826,36 @@ class ThermoChampionsApp {
         </tr>
       `;
     } else {
+      let currentRank = 1;
       data.forEach((grp, idx) => {
-        const isCurrent = this.currentGroup && this.currentGroup.nomorKelompok === grp.nomorKelompok;
+        if (idx > 0) {
+          const prev = data[idx - 1];
+          const isTie = prev.nilaiAkhir === grp.nilaiAkhir && (prev.waktuPenyelesaian || 0) === (grp.waktuPenyelesaian || 0);
+          if (!isTie) {
+            currentRank = idx + 1;
+          }
+        }
+        const rankNum = grp.rank || currentRank;
+        const rankMedal = rankNum === 1 ? '🥇 1' : rankNum === 2 ? '🥈 2' : rankNum === 3 ? '🥉 3' : `${rankNum}`;
+
+        const isCurrent = this.currentGroup && (this.currentGroup.nomorKelompok === grp.nomorKelompok || (this.currentGroup.nomorKelompokInt && grp.nomorKelompok === `Kelompok ${this.currentGroup.nomorKelompokInt}`));
         const mins = Math.floor((grp.waktuPenyelesaian || 0) / 60);
         const secs = (grp.waktuPenyelesaian || 0) % 60;
+        const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         const predInfo = getPredicateInfo(grp.nilaiAkhir);
 
         const tr = document.createElement('tr');
         if (isCurrent) tr.style.backgroundColor = '#eff6ff';
         tr.innerHTML = `
-          <td style="font-weight:900; font-family:monospace;">
-            ${idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : idx + 1}
-          </td>
+          <td style="font-weight:900; font-family:monospace; font-size:1.05rem;">${rankMedal}</td>
           <td>
             <strong>${grp.namaKelompok}</strong>
             ${isCurrent ? '<span style="font-size:0.65rem; background:var(--electric); color:var(--navy); padding:0.15rem 0.4rem; border-radius:0.25rem; margin-left:0.35rem; font-weight:800;">KELOMPOKMU</span>' : ''}
           </td>
           <td><span style="font-weight:700; color:var(--deepblue);">${grp.nomorKelompok}</span></td>
-          <td style="font-weight:900; font-family:monospace; color:var(--navy); font-size:1.1rem;">${grp.nilaiAkhir}</td>
+          <td style="font-weight:900; font-family:monospace; color:var(--orange); font-size:1.1rem;">${grp.nilaiAkhir}</td>
           <td><span style="font-size:0.75rem; font-weight:800;">${predInfo.badge} ${predInfo.title}</span></td>
-          <td style="font-family:monospace; color:var(--slate-600);">${mins}m ${secs}s</td>
+          <td style="font-family:monospace; color:var(--slate-600); font-weight:600;">⏱️ ${timeStr}</td>
         `;
         tbody.appendChild(tr);
       });

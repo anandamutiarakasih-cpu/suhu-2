@@ -349,13 +349,34 @@ const ThermoDB = {
 
   /**
    * Submit an answer for Quiz, Memory, or Calculation
-   * Unique constraint (session_id, group_number, mode, item_id) ensures
-   * that answers cannot be submitted more than once!
+   * Validates via PostgreSQL Server RPC (Anti-Cheat & Anti-Duplicate),
+   * with fallback to direct table insert if RPC is not installed yet.
    */
   async submitAnswer(sessionId, groupNumber, mode, itemId, answer, isCorrect, pointsEarned) {
     const client = getSupabaseClient();
     if (!client) return { success: false, reason: 'offline' };
 
+    const deviceToken = typeof getDeviceToken === 'function' ? getDeviceToken() : '';
+
+    // 1. Try server-side validation RPC first (true anti-cheat & server calculation)
+    try {
+      const { data: rpcData, error: rpcError } = await client.rpc('submit_group_answer', {
+        p_session_id: sessionId,
+        p_group_number: parseInt(groupNumber, 10),
+        p_mode: mode,
+        p_item_id: String(itemId),
+        p_answer: String(answer),
+        p_device_token: deviceToken
+      });
+
+      if (!rpcError && rpcData) {
+        return rpcData;
+      }
+    } catch (rpcEx) {
+      console.warn('submit_group_answer RPC fallback:', rpcEx);
+    }
+
+    // 2. Direct table insert fallback (still protected by DB unique constraint 23505)
     const payload = {
       session_id: sessionId,
       group_number: parseInt(groupNumber, 10),
@@ -383,7 +404,63 @@ const ThermoDB = {
       return { success: false, error: error };
     }
 
-    return { success: true, data: data };
+    return { success: true, data: data, is_correct: isCorrect, points_earned: pointsEarned };
+  },
+
+  /**
+   * Get Leaderboard with Tie-Breaker Ranking
+   * Requirement: Highest score first, faster completion time if tied, same rank if still tied.
+   */
+  async getLeaderboard(sessionId) {
+    const client = getSupabaseClient();
+    if (!client) return [];
+
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('get_session_leaderboard', {
+        p_session_id: sessionId
+      });
+      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+        return rpcData;
+      }
+    } catch (e) {}
+
+    // Fallback calculation in JS with dense tie-breaking
+    const groups = await this.getGroups(sessionId);
+    const sorted = [...groups].sort((a, b) => {
+      if (b.final_score !== a.final_score) return b.final_score - a.final_score;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      return (a.duration_seconds || 99999) - (b.duration_seconds || 99999);
+    });
+
+    let currentRank = 1;
+    return sorted.map((g, idx) => {
+      if (idx > 0) {
+        const prev = sorted[idx - 1];
+        const isTie = prev.final_score === g.final_score && prev.duration_seconds === g.duration_seconds;
+        if (!isTie) {
+          currentRank = idx + 1;
+        }
+      }
+      return {
+        ...g,
+        rank: currentRank
+      };
+    });
+  },
+
+  /**
+   * Send heartbeat to keep presence online
+   */
+  async sendHeartbeat(sessionId, groupNumber) {
+    const client = getSupabaseClient();
+    if (!client || !sessionId || !groupNumber) return;
+    try {
+      await client
+        .from('session_groups')
+        .update({ last_active: this.getNow().toISOString(), is_online: true })
+        .eq('session_id', sessionId)
+        .eq('group_number', groupNumber);
+    } catch (e) {}
   },
 
   /**

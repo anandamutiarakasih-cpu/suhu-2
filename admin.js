@@ -239,9 +239,10 @@ class AdminManager {
   async refreshData() {
     if (!this.currentSession) return;
     const groups = await ThermoDB.getGroups(this.currentSession.id);
+    const leaderboard = await ThermoDB.getLeaderboard(this.currentSession.id);
     this.groupsData = groups;
     this.render8LobbyCards(groups);
-    this.renderLeaderboardTable(groups);
+    this.renderLeaderboardTable(leaderboard.length > 0 ? leaderboard : groups);
     this.updateSessionBanner(this.currentSession);
   }
 
@@ -291,6 +292,9 @@ class AdminManager {
       const isConnected = Boolean(g);
       if (isConnected) connectedCount++;
 
+      const isRecentlyActive = isConnected && g.last_active && ((Date.now() - new Date(g.last_active).getTime()) < 45000);
+      const isOnline = isConnected && (g.is_online !== false) && (isRecentlyActive || g.status === 'finished');
+
       const card = document.createElement('div');
       card.className = `group-status-card ${isConnected ? (g.status === 'finished' ? 'finished' : (g.status === 'playing' ? 'playing' : 'connected')) : ''}`;
 
@@ -301,7 +305,14 @@ class AdminManager {
 
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-          <div class="g-badge">${g?.badge || '🌡️'}</div>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <div class="g-badge">${g?.badge || '🌡️'}</div>
+            ${isConnected ? `
+              <span title="${isOnline ? 'Online (Aktif)' : 'Offline / Tidak ada respon'}" style="display:inline-flex; align-items:center; gap:3px; font-size:0.6rem; font-weight:700; color:${isOnline ? '#16a34a' : '#94a3b8'};">
+                <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${isOnline ? '#22c55e' : '#94a3b8'}; ${isOnline ? 'box-shadow:0 0 6px #22c55e;' : ''}"></span>
+                ${isOnline ? 'Online' : 'Offline'}
+              </span>` : ''}
+          </div>
           <span style="font-size:0.65rem; font-weight:800; padding:0.15rem 0.4rem; border-radius:0.25rem; ${isConnected ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#94a3b8;'}">
             ${isConnected ? (g.status === 'finished' ? 'SELESAI' : (g.status === 'playing' ? 'MAIN' : 'SIAP')) : 'KOSONG'}
           </span>
@@ -325,7 +336,7 @@ class AdminManager {
     if (groups.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="10" style="text-align:center; padding:2rem; color:var(--slate-400);">
+          <td colspan="11" style="text-align:center; padding:2rem; color:var(--slate-400);">
             Menunggu kelompok bergabung dan mulai bertanding...
           </td>
         </tr>
@@ -340,16 +351,26 @@ class AdminManager {
       return (a.duration_seconds || 99999) - (b.duration_seconds || 99999);
     });
 
+    let currentRank = 1;
     sorted.forEach((grp, idx) => {
-      const tr = document.createElement('tr');
+      if (idx > 0) {
+        const prev = sorted[idx - 1];
+        const isTie = prev.final_score === grp.final_score && (prev.duration_seconds || 0) === (grp.duration_seconds || 0);
+        if (!isTie) {
+          currentRank = idx + 1;
+        }
+      }
+      const rankNum = grp.rank || currentRank;
+      const rankMedal = rankNum === 1 ? '🥇 1' : rankNum === 2 ? '🥈 2' : rankNum === 3 ? '🥉 3' : `${rankNum}`;
+
       const mins = Math.floor((grp.duration_seconds || 0) / 60);
       const secs = (grp.duration_seconds || 0) % 60;
+      const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
       const membersCount = Array.isArray(grp.members) ? grp.members.length : 0;
 
+      const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-weight:900; font-family:monospace;">
-          ${idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : idx + 1}
-        </td>
+        <td style="font-weight:900; font-family:monospace; font-size:1.05rem;">${rankMedal}</td>
         <td><strong>Kelompok ${grp.group_number}</strong></td>
         <td style="font-weight:700; color:var(--deepblue);">${grp.group_name}</td>
         <td><span style="font-size:0.75rem; color:var(--slate-500);">${membersCount} Orang</span></td>
@@ -357,6 +378,7 @@ class AdminManager {
         <td style="font-family:monospace; color:var(--navy); font-weight:700;">${grp.score_memory || 0}</td>
         <td style="font-family:monospace; color:var(--navy); font-weight:700;">${grp.score_calc || 0}</td>
         <td style="font-weight:900; font-family:monospace; font-size:1.1rem; color:var(--orange);">${grp.final_score || 0}</td>
+        <td style="font-family:monospace; color:var(--slate-600); font-weight:600;">⏱️ ${timeStr}</td>
         <td><span style="font-size:0.75rem; font-weight:800;">${grp.predicate || 'TEMPERATURE ROOKIE'}</span></td>
         <td>
           <span style="font-size:0.7rem; font-weight:800; padding:0.15rem 0.45rem; border-radius:0.25rem; ${grp.status === 'finished' ? 'background:#faf5ff; color:#7e22ce;' : (grp.status === 'playing' ? 'background:#eff6ff; color:#1d4ed8;' : 'background:#f0fdf4; color:#15803d;')}">

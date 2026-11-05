@@ -67,10 +67,10 @@ class RealtimeDatabaseEngine {
       onValue(connRef, (snap) => {
         const val = snap.val();
         this.isOnline = !!val;
-        console.log(val ? '🟢 Firebase RTDB Online (kalor3-ff4af)' : '🟠 Firebase RTDB Connecting...');
+        console.log(val ? '🟢 Firebase RTDB Online (Suhu 2)' : '🟠 Firebase RTDB Connecting...');
       });
 
-      console.log('✅ Firebase Realtime Database Engine Initialized.');
+      console.log('✅ Firebase Realtime Database Engine Initialized (Suhu 2).');
     } catch (err) {
       console.warn('Firebase RTDB note (falling back to Cloud Relay):', err.message);
     }
@@ -207,6 +207,8 @@ class RealtimeDatabaseEngine {
       id: code,
       sessionCode: sessionCode,
       code: code,
+      subject: 'SUHU',
+      edition: 'THERMO CHAMPIONS — SUHU 2',
       title: title.trim(),
       status: 'waiting', // waiting | started | paused | ended
       currentPhase: 'LOBBY',

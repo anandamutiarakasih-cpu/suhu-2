@@ -187,11 +187,11 @@ class AdminApp {
           const val = snap.val();
           if (val) {
             if (connPill) connPill.className = 'connection-status status-online';
-            if (connText) connText.textContent = 'Firebase RTDB Terhubung (kalor3-ff4af)';
+            if (connText) connText.textContent = 'Firebase RTDB Terhubung (Suhu 2 Online)';
           } else {
             // Check if Global Cloud Relay is responding
             if (connPill) connPill.className = 'connection-status status-online';
-            if (connText) connText.textContent = 'Multiplayer Cloud Relay Aktif';
+            if (connText) connText.textContent = 'Multiplayer Cloud Relay Aktif (Suhu 2)';
           }
         });
       } else {

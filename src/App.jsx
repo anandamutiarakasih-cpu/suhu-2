@@ -46,7 +46,7 @@ export default function App() {
   const handleNewPlayer = () => {
     clearCurrentPlayer();
     setPlayer(null);
-    setShowPlayerModal(true);
+    setCurrentView('register');
   };
 
   // Handle player logout / change
@@ -61,7 +61,7 @@ export default function App() {
   // Start a game mode
   const handleStartMode = (modeName) => {
     if (!player) {
-      setShowPlayerModal(true);
+      setCurrentView('register');
       return;
     }
     setCurrentView(modeName);
@@ -223,9 +223,18 @@ export default function App() {
             player={player}
             onStart={() => {
               if (player) setCurrentView('dashboard');
-              else setShowPlayerModal(true);
+              else setCurrentView('register');
             }}
             onLearn={() => setCurrentView('material')}
+          />
+        )}
+
+        {currentView === 'register' && (
+          <PlayerModal
+            isPage={true}
+            initialPlayer={player}
+            onSavePlayer={handleSavePlayer}
+            onCancel={() => setCurrentView(player ? 'dashboard' : 'landing')}
           />
         )}
 
@@ -249,7 +258,7 @@ export default function App() {
             }}
             onStartPractice={() => {
               if (player) handleStartMode('quiz');
-              else setShowPlayerModal(true);
+              else setCurrentView('register');
             }}
           />
         )}
@@ -307,12 +316,13 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Registration Modal */}
+      {/* Modal Overlay if opened from other views */}
       {showPlayerModal && (
         <PlayerModal
+          isPage={false}
           initialPlayer={player}
           onSavePlayer={handleSavePlayer}
-          onCancel={player ? () => setShowPlayerModal(false) : null}
+          onCancel={() => setShowPlayerModal(false)}
         />
       )}
 

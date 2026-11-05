@@ -10,6 +10,7 @@ import NumberChains from './components/NumberChains';
 import FinalEvaluation from './components/FinalEvaluation';
 import LeaderboardModal from './components/LeaderboardModal';
 import HelpModal from './components/HelpModal';
+import TeamsRosterModal from './components/TeamsRosterModal';
 import { 
   getPlayer, savePlayer, clearPlayer, 
   getScores, saveScores 
@@ -25,6 +26,7 @@ export default function App() {
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showTeamsRoster, setShowTeamsRoster] = useState(false);
 
   // Compute total score (max 100)
   const totalScore = Math.min(
@@ -45,9 +47,28 @@ export default function App() {
     setCurrentView('dashboard');
   };
 
+  // Handle selecting team from Roster Modal
+  const handleSelectTeamFromRoster = (team) => {
+    const teamPlayer = {
+      isTeam: true,
+      teamId: team.id,
+      name: `${team.name} (${team.teamName})`,
+      teamName: team.teamName,
+      groupName: team.name,
+      badge: team.badge,
+      className: player?.className || '7-A',
+      members: team.members,
+      motto: team.motto,
+      studentNumber: `Absen ${team.members[0].absentNo}-${team.members[3].absentNo}`
+    };
+    savePlayer(teamPlayer);
+    setPlayer(teamPlayer);
+    setCurrentView('dashboard');
+  };
+
   // Handle player logout / change
   const handleLogout = () => {
-    if (window.confirm('Apakah kamu yakin ingin berganti pemain atau keluar? Skor sesi ini tetap tersimpan.')) {
+    if (window.confirm('Ganti kelompok atau pemain? Skor kelompok saat ini tetap tersimpan di perangkat.')) {
       clearPlayer();
       setPlayer(null);
       setScores(getScores());
@@ -75,7 +96,6 @@ export default function App() {
     setScores(updated);
     saveScores(updated);
 
-    // If all 3 modes completed, go to evaluation
     if (updated.memoryCompleted && updated.calcCompleted) {
       setCurrentView('evaluation');
     } else {
@@ -148,6 +168,7 @@ export default function App() {
         totalScore={totalScore}
         onOpenLeaderboard={() => setShowLeaderboard(true)}
         onOpenHelp={() => setShowHelp(true)}
+        onOpenTeamsRoster={() => setShowTeamsRoster(true)}
         onLogout={handleLogout}
       />
 
@@ -174,6 +195,7 @@ export default function App() {
             onOpenLeaderboard={() => setShowLeaderboard(true)}
             onOpenHelp={() => setShowHelp(true)}
             onEditProfile={() => setShowPlayerModal(true)}
+            onOpenTeamsRoster={() => setShowTeamsRoster(true)}
           />
         )}
 
@@ -229,10 +251,17 @@ export default function App() {
           <div className="flex items-center gap-1.5 font-bold text-navy-950">
             <span>THERMO CHAMPIONS</span>
             <span>•</span>
-            <span className="text-slate-500 font-normal">Media Pembelajaran IPA Kelas VII SMP</span>
+            <span className="text-slate-500 font-normal">Kompetisi 8 Kelompok (32 Siswa) • IPA Kelas VII SMP</span>
           </div>
-          <div>
-            Kompetisi Akademik Sains 3 Mode — Suhu & Skala Termometer
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTeamsRoster(true)}
+              className="text-deepblue hover:underline font-bold"
+            >
+              Matriks 8 Kelompok
+            </button>
+            <span>•</span>
+            <span>Materi Suhu & Termometer</span>
           </div>
         </div>
       </footer>
@@ -243,6 +272,10 @@ export default function App() {
           initialPlayer={player}
           onSavePlayer={handleSavePlayer}
           onCancel={player ? () => setShowPlayerModal(false) : null}
+          onOpenTeamsRoster={() => {
+            setShowPlayerModal(false);
+            setShowTeamsRoster(true);
+          }}
         />
       )}
 
@@ -256,6 +289,13 @@ export default function App() {
       {showHelp && (
         <HelpModal
           onClose={() => setShowHelp(false)}
+        />
+      )}
+
+      {showTeamsRoster && (
+        <TeamsRosterModal
+          onClose={() => setShowTeamsRoster(false)}
+          onSelectTeamToPlay={handleSelectTeamFromRoster}
         />
       )}
 

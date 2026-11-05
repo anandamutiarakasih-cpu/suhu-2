@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Printer, X, Download, Flame, ShieldCheck } from 'lucide-react';
+import { Award, Printer, X, Download, Flame, ShieldCheck, Users } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 export default function CertificateModal({ player, totalScore, predicate, onClose }) {
@@ -75,20 +75,46 @@ export default function CertificateModal({ player, totalScore, predicate, onClos
             </p>
           </div>
 
-          <div className="w-24 h-1 bg-gradient-to-r from-amber-400 via-thermoOrange to-amber-500 mx-auto my-4 rounded-full"></div>
+          <div className="w-24 h-1 bg-gradient-to-r from-amber-400 via-thermoOrange to-amber-500 mx-auto my-3 rounded-full"></div>
 
           {/* Certificate Body */}
           <p className="text-xs sm:text-sm text-slate-600 italic mb-2">
-            Dengan bangga diberikan kepada:
+            Dengan bangga dan apresiasi tinggi dianugerahkan kepada:
           </p>
 
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-navy-950 font-serif my-2 tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
-            {player?.name || 'Peserta Didik'}
-          </h2>
+          {/* Recipient Name: Team or Individual */}
+          {player?.isTeam ? (
+            <div className="my-3">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-navy-950 font-serif tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
+                {player.groupName} — {player.teamName}
+              </h2>
+              <p className="text-xs font-semibold text-slate-600 mt-2">
+                Kelas {player.className || '7'} {player.studentNumber ? `• ${player.studentNumber}` : ''}
+              </p>
 
-          <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-3 mb-6">
-            Kelas {player?.className || '7'} {player?.studentNumber ? `• No. Absen ${player.studentNumber}` : ''}
-          </p>
+              {/* 4 Team Members on Certificate */}
+              {player.members && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-xl mx-auto my-4 text-left">
+                  {player.members.map((m, idx) => (
+                    <div key={idx} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                      <div className="text-[9px] uppercase font-bold text-deepblue truncate">{m.role}</div>
+                      <div className="text-xs font-bold text-navy-950 truncate">{m.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Absen {m.absentNo}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="my-3">
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-navy-950 font-serif tracking-tight underline decoration-amber-400 decoration-2 underline-offset-8">
+                {player?.name || 'Peserta Didik'}
+              </h2>
+              <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-3 mb-4">
+                Kelas {player?.className || '7'} {player?.studentNumber ? `• No. Absen ${player.studentNumber}` : ''}
+              </p>
+            </div>
+          )}
 
           <p className="text-xs sm:text-sm text-slate-700 max-w-xl mx-auto leading-relaxed mb-6">
             Telah berhasil menyelesaikan seluruh rangkaian tantangan kompetisi akademik tiga mode:
@@ -147,7 +173,7 @@ export default function CertificateModal({ player, totalScore, predicate, onClos
             {/* Right: Signature */}
             <div className="text-right space-y-1">
               <div className="text-[11px] font-serif italic text-slate-500">
-                Tim Pengembang & Guru IPA
+                Guru Mata Pelajaran IPA
               </div>
               <div className="w-28 h-px bg-slate-400 ml-auto my-1"></div>
               <div className="text-[10px] font-bold text-navy-950 uppercase">

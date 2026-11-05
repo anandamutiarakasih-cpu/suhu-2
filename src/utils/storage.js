@@ -1,4 +1,4 @@
-// Storage & Game Logic Utilities
+// Storage & Game Logic Utilities with 8-Team Support
 
 export const getPredicate = (score) => {
   const rounded = Math.round(score * 10) / 10;
@@ -94,13 +94,16 @@ export const getLeaderboard = () => {
   try {
     const raw = localStorage.getItem('thermo_leaderboard');
     if (!raw) {
-      // Seed initial sample leaderboard for academic competition feel
+      // Seed initial sample leaderboard including 8 teams for academic tournament
       const initial = [
-        { name: 'Nadia Kirana', className: '7-A', score: 96.5, predicate: 'Thermo Champion', date: '2026-11-04' },
-        { name: 'Rafi Pratama', className: '7-C', score: 93.0, predicate: 'Thermo Champion', date: '2026-11-03' },
-        { name: 'Aisyah Putri', className: '7-B', score: 87.5, predicate: 'Thermo Champion', date: '2026-11-04' },
-        { name: 'Bima Satria', className: '7-A', score: 82.0, predicate: 'Thermo Expert', date: '2026-11-02' },
-        { name: 'Chelsea Vania', className: '7-D', score: 79.5, predicate: 'Thermo Expert', date: '2026-11-01' },
+        { name: 'Kelompok 1 (Tim Celsius)', className: '7-A', score: 96.5, predicate: 'Thermo Champion', isTeam: true, date: '2026-11-04' },
+        { name: 'Kelompok 4 (Tim Kelvin)', className: '7-A', score: 93.0, predicate: 'Thermo Champion', isTeam: true, date: '2026-11-04' },
+        { name: 'Kelompok 2 (Tim Fahrenheit)', className: '7-A', score: 87.5, predicate: 'Thermo Champion', isTeam: true, date: '2026-11-03' },
+        { name: 'Kelompok 3 (Tim Reamur)', className: '7-A', score: 84.0, predicate: 'Thermo Expert', isTeam: true, date: '2026-11-03' },
+        { name: 'Kelompok 6 (Tim Pirometer)', className: '7-A', score: 80.5, predicate: 'Thermo Expert', isTeam: true, date: '2026-11-02' },
+        { name: 'Kelompok 8 (Tim Kesetimbangan Termal)', className: '7-A', score: 77.0, predicate: 'Thermo Expert', isTeam: true, date: '2026-11-02' },
+        { name: 'Kelompok 5 (Tim Bimetal)', className: '7-A', score: 73.5, predicate: 'Science Challenger', isTeam: true, date: '2026-11-01' },
+        { name: 'Kelompok 7 (Tim Termokopel)', className: '7-A', score: 70.0, predicate: 'Science Challenger', isTeam: true, date: '2026-11-01' },
       ];
       localStorage.setItem('thermo_leaderboard', JSON.stringify(initial));
       return initial;
@@ -113,7 +116,17 @@ export const getLeaderboard = () => {
 
 export const addLeaderboardEntry = (entry) => {
   const current = getLeaderboard();
-  current.push(entry);
+  
+  // If entry with same name exists, update if new score is higher
+  const existingIdx = current.findIndex(item => item.name === entry.name);
+  if (existingIdx !== -1) {
+    if (entry.score > current[existingIdx].score) {
+      current[existingIdx] = entry;
+    }
+  } else {
+    current.push(entry);
+  }
+
   // Sort descending by score
   current.sort((a, b) => b.score - a.score);
   // Keep top 20

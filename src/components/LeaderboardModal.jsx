@@ -1,10 +1,15 @@
-import React from 'react';
-import { Trophy, X, Medal, Sparkles, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trophy, X, Medal, Sparkles, User, Users } from 'lucide-react';
 import { getLeaderboard } from '../utils/storage';
 import { sound } from '../utils/audio';
 
 export default function LeaderboardModal({ currentPlayer, onClose }) {
+  const [filter, setFilter] = useState('all'); // 'all' | 'teams'
   const leaderboard = getLeaderboard();
+
+  const filteredList = filter === 'teams' 
+    ? leaderboard.filter((item) => item.isTeam) 
+    : leaderboard;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/70 backdrop-blur-sm animate-fadeIn">
@@ -35,9 +40,40 @@ export default function LeaderboardModal({ currentPlayer, onClose }) {
           </button>
         </div>
 
+        {/* Filter Toggle: Semua vs 8 Kelompok */}
+        <div className="px-6 pt-4 pb-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+          <button
+            onClick={() => {
+              sound.click();
+              setFilter('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filter === 'all'
+                ? 'bg-deepblue text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+            }`}
+          >
+            Semua Klasemen
+          </button>
+          <button
+            onClick={() => {
+              sound.click();
+              setFilter('teams');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filter === 'teams'
+                ? 'bg-deepblue text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Peringkat 8 Kelompok</span>
+          </button>
+        </div>
+
         {/* List of Leaders */}
         <div className="overflow-y-auto p-4 sm:p-6 space-y-2.5">
-          {leaderboard.map((item, idx) => {
+          {filteredList.map((item, idx) => {
             const isTop1 = idx === 0;
             const isTop2 = idx === 1;
             const isTop3 = idx === 2;
@@ -73,8 +109,13 @@ export default function LeaderboardModal({ currentPlayer, onClose }) {
                       <span className="font-bold text-navy-950 text-sm truncate">
                         {item.name}
                       </span>
+                      {item.isTeam && (
+                        <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-100 text-deepblue">
+                          Tim
+                        </span>
+                      )}
                       {isMe && (
-                        <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded bg-electric text-navy-950">
+                        <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-electric text-navy-950">
                           Kamu
                         </span>
                       )}
@@ -105,7 +146,7 @@ export default function LeaderboardModal({ currentPlayer, onClose }) {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 text-center">
           <p className="text-xs text-slate-500">
-            Peringkat dihitung berdasarkan akumulasi nilai maksimal 100 dari tiga mode permainan.
+            Klasemen dihitung otomatis dari akumulasi 3 mode (StarChamp, Memory Madness, Number Chains).
           </p>
         </div>
 

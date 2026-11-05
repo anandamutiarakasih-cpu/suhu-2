@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Trophy, BookOpen, HelpCircle, User, LogOut, Flame } from 'lucide-react';
+import { Volume2, VolumeX, Trophy, BookOpen, HelpCircle, User, Users, LogOut, Flame } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 export default function Navbar({
@@ -9,6 +9,7 @@ export default function Navbar({
   totalScore,
   onOpenLeaderboard,
   onOpenHelp,
+  onOpenTeamsRoster,
   onLogout
 }) {
   const [muted, setMuted] = useState(sound.isMuted());
@@ -43,7 +44,7 @@ export default function Navbar({
                 THERMO<span className="text-electric">CHAMPIONS</span>
               </span>
               <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-electric/20 text-electric border border-electric/30">
-                IPA VII
+                IPA VII • 8 Tim
               </span>
             </div>
             <p className="text-[10px] text-slate-400 -mt-0.5 hidden sm:block tracking-wide">
@@ -54,6 +55,20 @@ export default function Navbar({
 
         {/* Center / Right Navigation Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          
+          {/* 8 Teams Roster Button */}
+          <button
+            onClick={() => {
+              sound.click();
+              onOpenTeamsRoster();
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-200 hover:bg-white/10 transition-colors"
+            title="Matriks Pembagian 8 Kelompok (32 Siswa)"
+          >
+            <Users className="w-4 h-4 text-electric" />
+            <span className="hidden lg:inline">8 Kelompok</span>
+          </button>
+
           {/* Study Material Button */}
           <button
             onClick={() => {
@@ -106,7 +121,7 @@ export default function Navbar({
             {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
 
-          {/* Active Player Chip */}
+          {/* Active Player / Team Chip */}
           {player ? (
             <div className="flex items-center gap-2 pl-2 border-l border-white/10">
               <div
@@ -117,14 +132,14 @@ export default function Navbar({
                 className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1 rounded-lg border border-white/10 cursor-pointer transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-electric/20 text-electric flex items-center justify-center font-bold text-xs">
-                  {player.name.charAt(0).toUpperCase()}
+                  {player.isTeam ? (player.badge || '👥') : player.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <div className="text-xs font-bold text-white leading-none max-w-[100px] truncate">
-                    {player.name}
+                  <div className="text-xs font-bold text-white leading-none max-w-[120px] truncate">
+                    {player.isTeam ? player.teamName : player.name}
                   </div>
                   <div className="text-[10px] text-electric font-mono font-bold leading-none mt-0.5">
-                    {totalScore} / 100 Poin
+                    {totalScore} / 100 Pts
                   </div>
                 </div>
               </div>
@@ -135,7 +150,7 @@ export default function Navbar({
                   onLogout();
                 }}
                 className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
-                title="Ganti Pemain / Keluar"
+                title="Ganti Pemain/Kelompok"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -148,7 +163,7 @@ export default function Navbar({
               }}
               className="bg-thermoOrange hover:bg-thermoOrange-hover text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all"
             >
-              Masuk
+              Pilih Tim
             </button>
           )}
         </div>

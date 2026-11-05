@@ -1,6 +1,6 @@
 /**
  * THERMO CHAMPIONS — FIREBASE INITIALIZER & CONFIG
- * Menggunakan kredensial aktif proyek kalor3-ff4af seperti di folder Kalor2 & Kalor3.
+ * Menggunakan kredensial aktif proyek resmi: suhu-2-ipa.
  * Vanilla JavaScript (ES Modules) via official Google Firebase Modular SDK.
  */
 
@@ -17,8 +17,8 @@ export const STORAGE_KEYS = {
   RTDB_URL: 'tc_rtdb_url'
 };
 
-// Deteksi dinamis parameter ?db= dari URL atau LocalStorage seperti di Kalor2/Kalor3
-let initialDbUrl = "https://kalor3-ff4af-default-rtdb.asia-southeast1.firebasedatabase.app";
+// Deteksi dinamis parameter ?db= dari URL atau LocalStorage
+let initialDbUrl = "https://suhu-2-ipa-default-rtdb.asia-southeast1.firebasedatabase.app";
 try {
   if (typeof window !== 'undefined' && window.location && window.location.search) {
     const params = new URLSearchParams(window.location.search);
@@ -37,15 +37,12 @@ try {
   console.warn('DB URL detection error:', e);
 }
 
-// Kredensial aktif Firebase Realtime Database (Proyek: kalor3-ff4af)
+// Kredensial aktif Firebase Realtime Database (Proyek: suhu-2-ipa)
 export const firebaseConfig = {
   apiKey: "AIzaSyCErNW-portvbj7qSL-cCK1DaWNpW2yRFg",
-  authDomain: "kalor3-ff4af.firebaseapp.com",
-  projectId: "kalor3-ff4af",
-  storageBucket: "kalor3-ff4af.firebasestorage.app",
-  messagingSenderId: "137693547137",
-  appId: "1:137693547137:web:4f17c9c5c8e7a47ad2db80",
-  measurementId: "G-HQGHW6NYJT",
+  authDomain: "suhu-2-ipa.firebaseapp.com",
+  projectId: "suhu-2-ipa",
+  storageBucket: "suhu-2-ipa.firebasestorage.app",
   databaseURL: initialDbUrl
 };
 

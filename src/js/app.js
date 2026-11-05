@@ -246,7 +246,7 @@ class StudentApp {
     }
 
     // Subscribe to lobby slots for this session to mark taken groups
-    this.listenToLobbySlots(session.id);
+    this.listenToLobbySlots(session.code || session.sessionCode || session.id);
     return session;
   }
 
@@ -457,8 +457,9 @@ class StudentApp {
     }
 
     try {
+      const sId = sess.code || sess.sessionCode || sess.id;
       const res = await callJoinGroup(
-        sess.id,
+        sId,
         this.selectedGroupNumber,
         teamName,
         members,
@@ -513,9 +514,11 @@ class StudentApp {
     // Update Navbar group pill
     this.updateNavPill(group);
 
+    const sId = session.code || session.sessionCode || session.id;
+
     // Listen to session status changes: triggers "MULAI BERSAMA"
     if (this.sessionListenerUnsub) this.sessionListenerUnsub();
-    this.sessionListenerUnsub = listenToSession(session.id, (updatedSession) => {
+    this.sessionListenerUnsub = listenToSession(sId, (updatedSession) => {
       if (!updatedSession) return;
       gameState.setSession(updatedSession);
 
@@ -525,7 +528,7 @@ class StudentApp {
     });
 
     // Listen to 8 lobby slots
-    this.listenToLobbyDisplay(session.id);
+    this.listenToLobbyDisplay(sId);
   }
 
   listenToLobbyDisplay(sessionId) {
@@ -557,7 +560,8 @@ class StudentApp {
       const sess = gameState.session;
       const grp = gameState.group;
       if (sess && grp) {
-        await releaseGroupSlot(sess.id, grp.groupNumber, gameState.deviceToken);
+        const sId = sess.code || sess.sessionCode || sess.id;
+        await releaseGroupSlot(sId, grp.groupNumber, gameState.deviceToken);
       }
       gameState.clear();
       this.showView('group-select');
@@ -760,7 +764,8 @@ class StudentApp {
     const sess = gameState.session;
     const grp = gameState.group;
     if (sess && grp) {
-      await finishGroupGame(sess.id, grp.groupNumber);
+      const sId = sess.code || sess.sessionCode || sess.id;
+      await finishGroupGame(sId, grp.groupNumber);
     }
 
     launchConfetti();
@@ -880,8 +885,9 @@ class StudentApp {
     const sess = gameState.session;
     if (!sess) return;
 
+    const sId = sess.code || sess.sessionCode || sess.id;
     const tbody = document.getElementById('leaderboard-tbody');
-    listenToLeaderboard(sess.id, (rankList) => {
+    listenToLeaderboard(sId, (rankList) => {
       if (!tbody) return;
       tbody.innerHTML = '';
       rankList.forEach((row, idx) => {

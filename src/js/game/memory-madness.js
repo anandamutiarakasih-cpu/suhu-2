@@ -192,8 +192,9 @@ export class MemoryMadnessGame {
     const grp = gameState.group;
     if (sess && grp) {
       try {
+        const sId = sess.code || sess.sessionCode || sess.id;
         const res = await callSubmitAnswer(
-          sess.id,
+          sId,
           grp.groupNumber,
           gameState.deviceToken,
           'memory',
@@ -282,7 +283,8 @@ export class MemoryMadnessGame {
     const sess = gameState.session;
     const grp = gameState.group;
     if (sess && grp) {
-      await markModeCompleted(sess.id, grp.groupNumber, 'memory');
+      const sId = sess.code || sess.sessionCode || sess.id;
+      await markModeCompleted(sId, grp.groupNumber, 'memory');
       gameState.markModeDone('memory');
     }
 

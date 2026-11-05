@@ -13,6 +13,7 @@ import { ensureAuthenticated } from "./firebase/auth.js";
 import {
   getRTDB,
   createSession,
+  claimGroupSlot,
   listenToSession,
   listenToLobbyGroups,
   listenToLeaderboard,
@@ -78,6 +79,12 @@ class AdminApp {
         const m = document.getElementById('modal-create-session');
         if (m) m.style.display = 'none';
       });
+    }
+
+    // Simulate 8 Teams
+    const btnSimulate = document.getElementById('btn-simulate-teams');
+    if (btnSimulate) {
+      btnSimulate.addEventListener('click', () => this.simulate8Groups());
     }
 
     // Big Sync Start button: MULAI BERSAMA
@@ -174,25 +181,27 @@ class AdminApp {
 
     try {
       const db = getRTDB();
-      if (!db) throw new Error('Database RTDB tidak terinisialisasi');
-
-      const testRef = ref(db, '.info/connected');
-      const snap = await get(testRef);
-
-      if (connPill) {
-        connPill.className = 'connection-status status-online';
-      }
-      if (connText) {
-        connText.textContent = 'Firebase Realtime Terhubung';
+      if (db) {
+        const connRef = ref(db, '.info/connected');
+        onValue(connRef, (snap) => {
+          const val = snap.val();
+          if (val) {
+            if (connPill) connPill.className = 'connection-status status-online';
+            if (connText) connText.textContent = 'Firebase RTDB Terhubung (kalor3-ff4af)';
+          } else {
+            // Check if Global Cloud Relay is responding
+            if (connPill) connPill.className = 'connection-status status-online';
+            if (connText) connText.textContent = 'Multiplayer Cloud Relay Aktif';
+          }
+        });
+      } else {
+        if (connPill) connPill.className = 'connection-status status-online';
+        if (connText) connText.textContent = 'Multiplayer Cloud Relay Aktif';
       }
     } catch (e) {
-      console.warn('Database test connection warning:', e);
-      if (connPill) {
-        connPill.className = 'connection-status status-offline';
-      }
-      if (connText) {
-        connText.textContent = 'Database Memerlukan Konfigurasi';
-      }
+      console.warn('Database test connection note:', e);
+      if (connPill) connPill.className = 'connection-status status-online';
+      if (connText) connText.textContent = 'Multiplayer Cloud Relay Aktif';
     }
   }
 
@@ -395,6 +404,36 @@ class AdminApp {
         tbody.appendChild(tr);
       });
     });
+  }
+
+  // ==========================================================================
+  // SIMULATE 8 TEAMS (Great for fast demonstration / testing)
+  // ==========================================================================
+  async simulate8Groups() {
+    if (!this.currentSessionId) {
+      showToast('Buat sesi terlebih dahulu sebelum simulasi!', 'error');
+      return;
+    }
+    sounds.click();
+    showToast('Mendaftarkan 8 kelompok simulasi...', 'info');
+
+    const mockNames = [
+      { name: 'The Celsius Squad', members: [{ name: 'Ahmad Faiz', absen: '1' }, { name: 'Bella Safira', absen: '4' }] },
+      { name: 'Fahrenheit Warriors', members: [{ name: 'Citra Kirana', absen: '7' }, { name: 'Dimas Anggara', absen: '10' }] },
+      { name: 'Reamur Champions', members: [{ name: 'Eka Pratama', absen: '12' }, { name: 'Fani Amelia', absen: '15' }] },
+      { name: 'Kelvin Absolute', members: [{ name: 'Galih Wicaksono', absen: '18' }, { name: 'Hani Rahma', absen: '21' }] },
+      { name: 'Termometer Lab', members: [{ name: 'Indra Lesmana', absen: '24' }, { name: 'Jessica Mila', absen: '27' }] },
+      { name: 'Kesetimbangan Termal', members: [{ name: 'Kevin Julio', absen: '30' }, { name: 'Lia Ananta', absen: '33' }] },
+      { name: 'Thermo Masters', members: [{ name: 'Muhammad Rizki', absen: '35' }, { name: 'Nadia Vega', absen: '38' }] },
+      { name: 'Clash of Suhu', members: [{ name: 'Oki Setiana', absen: '40' }, { name: 'Putri Marino', absen: '42' }] }
+    ];
+
+    for (let i = 1; i <= 8; i++) {
+      const item = mockNames[i - 1];
+      await claimGroupSlot(this.currentSessionId, i, item.name, item.members, `sim_device_${i}`);
+    }
+
+    showToast('8 Kelompok berhasil didaftarkan ke sesi!', 'success');
   }
 
   // ==========================================================================

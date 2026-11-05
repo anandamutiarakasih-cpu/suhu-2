@@ -1,6 +1,7 @@
 /**
  * THERMO CHAMPIONS — FIREBASE INITIALIZER & CONFIG
- * Vanilla JavaScript (ES Modules) via official Google Firebase Modular SDK
+ * Menggunakan kredensial aktif proyek kalor3-ff4af seperti di folder Kalor2 & Kalor3.
+ * Vanilla JavaScript (ES Modules) via official Google Firebase Modular SDK.
  */
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -12,18 +13,46 @@ export const STORAGE_KEYS = {
   ACTIVE_GROUP: 'thermo_active_group',
   DEVICE_TOKEN: 'thermo_device_token',
   ADMIN_SESSION_ID: 'thermo_admin_session_id',
-  MUTED: 'thermo_muted'
+  MUTED: 'thermo_muted',
+  RTDB_URL: 'tc_rtdb_url'
 };
 
-// Default Firebase Configuration (dapat diubah langsung via UI Admin atau localStorage)
-const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDummyKeyReplaceInSettings12345678",
-  authDomain: "thermo-champions.firebaseapp.com",
-  databaseURL: "https://thermo-champions-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "thermo-champions",
-  storageBucket: "thermo-champions.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef1234567890"
+// Deteksi dinamis parameter ?db= dari URL atau LocalStorage seperti di Kalor2/Kalor3
+let initialDbUrl = "https://kalor3-ff4af-default-rtdb.asia-southeast1.firebasedatabase.app";
+try {
+  if (typeof window !== 'undefined' && window.location && window.location.search) {
+    const params = new URLSearchParams(window.location.search);
+    const db = params.get('db');
+    if (db && decodeURIComponent(db).trim().startsWith('https://')) {
+      initialDbUrl = decodeURIComponent(db).trim();
+      localStorage.setItem(STORAGE_KEYS.RTDB_URL, initialDbUrl);
+    } else {
+      const saved = localStorage.getItem(STORAGE_KEYS.RTDB_URL);
+      if (saved && saved.startsWith('https://')) {
+        initialDbUrl = saved;
+      }
+    }
+  }
+} catch (e) {
+  console.warn('DB URL detection error:', e);
+}
+
+// Kredensial aktif Firebase Realtime Database (Proyek: kalor3-ff4af)
+export const firebaseConfig = {
+  apiKey: "AIzaSyCErNW-portvbj7qSL-cCK1DaWNpW2yRFg",
+  authDomain: "kalor3-ff4af.firebaseapp.com",
+  projectId: "kalor3-ff4af",
+  storageBucket: "kalor3-ff4af.firebasestorage.app",
+  messagingSenderId: "137693547137",
+  appId: "1:137693547137:web:4f17c9c5c8e7a47ad2db80",
+  measurementId: "G-HQGHW6NYJT",
+  databaseURL: initialDbUrl
+};
+
+// Admin default credentials for teacher login
+export const ADMIN_CREDENTIALS = {
+  passcode: "THERMO2026",
+  title: "Admin Guru IPA SMP"
 };
 
 /**
@@ -39,7 +68,7 @@ export function getDeviceToken() {
 }
 
 /**
- * Get the current Firebase Configuration object
+ * Get current Firebase Configuration object
  */
 export function getFirebaseConfig() {
   try {
@@ -53,7 +82,7 @@ export function getFirebaseConfig() {
   } catch (e) {
     console.warn('[FirebaseConfig] Failed to parse stored config:', e);
   }
-  return DEFAULT_FIREBASE_CONFIG;
+  return firebaseConfig;
 }
 
 /**
@@ -62,6 +91,9 @@ export function getFirebaseConfig() {
 export function setFirebaseConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return false;
   localStorage.setItem(STORAGE_KEYS.FIREBASE_CONFIG, JSON.stringify(cfg));
+  if (cfg.databaseURL) {
+    localStorage.setItem(STORAGE_KEYS.RTDB_URL, cfg.databaseURL);
+  }
   return true;
 }
 
@@ -82,10 +114,10 @@ export function getFirebaseApp() {
   const config = getFirebaseConfig();
   try {
     appInstance = initializeApp(config);
-    console.log('[ThermoChampions] Firebase App initialized successfully with project:', config.projectId);
+    console.log('✅ Firebase App initialized successfully with project:', config.projectId);
     return appInstance;
   } catch (err) {
-    console.error('[ThermoChampions] Error initializing Firebase App:', err);
+    console.error('❌ Error initializing Firebase App:', err);
     return null;
   }
 }

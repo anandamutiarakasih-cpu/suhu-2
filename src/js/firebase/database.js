@@ -1,6 +1,7 @@
 /**
- * THERMO CHAMPIONS — REALTIME DATABASE MULTIPLAYER SERVICE
- * Handles 8-group atomic slots, synchronized start, server-time sync, and live leaderboard.
+ * THERMO CHAMPIONS — REALTIME DATABASE & MULTI-LAYER ENGINE
+ * Persis seperti arsitektur di folder Kalor2 & Kalor3:
+ * Dual-Sync: Firebase RTDB (kalor3-ff4af) + Global Cloud Relay (SSE/REST) + BroadcastChannel + LocalStorage
  */
 
 import {
@@ -10,431 +11,704 @@ import {
   get,
   update,
   onValue,
-  off,
-  runTransaction,
-  serverTimestamp
+  off
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getFirebaseApp, getDeviceToken } from "./config.js";
+import { getFirebaseApp, getFirebaseConfig, getDeviceToken, STORAGE_KEYS } from "./config.js";
 import { ensureAuthenticated } from "./auth.js";
 import { getPredicate } from "../../data/questions.js";
 
-let dbInstance = null;
-let serverTimeOffset = 0;
-let timeOffsetListenerActive = false;
+class RealtimeDatabaseEngine {
+  constructor() {
+    this.db = null;
+    this.serverTimeOffset = 0;
+    this.broadcast = null;
+    this.sessionListeners = new Map(); // code -> Set of callbacks
+    this.activeSSE = new Map();        // code -> cleanup fn
+    this.isOnline = false;
 
-export function getRTDB() {
-  if (dbInstance) return dbInstance;
-  const app = getFirebaseApp();
-  if (!app) return null;
-  dbInstance = getDatabase(app);
-  initServerTimeSync();
-  return dbInstance;
-}
+    this.initBroadcastChannel();
+    this.initDatabase();
+  }
 
-/**
- * Synchronize device clock with Firebase server clock
- */
-export function initServerTimeSync() {
-  if (timeOffsetListenerActive) return;
-  const db = dbInstance || getDatabase(getFirebaseApp());
-  if (!db) return;
+  initBroadcastChannel() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.broadcast = new BroadcastChannel('thermo_champions_mesh');
+        this.broadcast.onmessage = (event) => {
+          if (!event || !event.data) return;
+          const { sessionCode, data } = event.data;
+          if (sessionCode && this.sessionListeners.has(sessionCode)) {
+            this.sessionListeners.get(sessionCode).forEach(cb => {
+              try { cb(data); } catch (e) { console.warn(e); }
+            });
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel not supported:', e);
+      }
+    }
+  }
 
-  const offsetRef = ref(db, ".info/serverTimeOffset");
-  onValue(offsetRef, (snap) => {
-    serverTimeOffset = snap.val() || 0;
-    timeOffsetListenerActive = true;
-  });
-}
+  initDatabase() {
+    try {
+      const app = getFirebaseApp();
+      if (!app) return;
+      const cfg = getFirebaseConfig();
+      this.db = cfg.databaseURL ? getDatabase(app, cfg.databaseURL) : getDatabase(app);
 
-/**
- * Return current millisecond time synchronized with the server
- */
-export function getSyncedServerNow() {
-  return Date.now() + serverTimeOffset;
-}
+      // Listen for server time offset
+      const offsetRef = ref(this.db, '.info/serverTimeOffset');
+      onValue(offsetRef, (snap) => {
+        this.serverTimeOffset = snap.val() || 0;
+      });
 
-/**
- * Create a new tournament session (Admin)
- */
-export async function createSession(title = 'Turnamen Suhu IPA') {
-  await ensureAuthenticated();
-  const db = getRTDB();
-  if (!db) throw new Error('Database Realtime tidak tersedia.');
+      // Listen for connection status
+      const connRef = ref(this.db, '.info/connected');
+      onValue(connRef, (snap) => {
+        const val = snap.val();
+        this.isOnline = !!val;
+        console.log(val ? '🟢 Firebase RTDB Online (kalor3-ff4af)' : '🟠 Firebase RTDB Connecting...');
+      });
 
-  const code = 'TC-' + Math.floor(1000 + Math.random() * 9000);
-  const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      console.log('✅ Firebase Realtime Database Engine Initialized.');
+    } catch (err) {
+      console.warn('Firebase RTDB note (falling back to Cloud Relay):', err.message);
+    }
+  }
 
-  const sessionData = {
-    id: sessionId,
-    sessionCode: code,
-    title: title.trim(),
-    status: 'waiting', // waiting | started | paused | ended
-    createdAt: serverTimestamp(),
-    startedAt: null,
-    endedAt: null,
-    totalDurationSeconds: 0
-  };
+  getSyncedServerNow() {
+    return Date.now() + this.serverTimeOffset;
+  }
 
-  const updates = {};
-  updates[`/sessions/${sessionId}`] = sessionData;
-  updates[`/sessionCodes/${code}`] = sessionId;
+  cleanCode(code) {
+    return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
 
-  await update(ref(db), updates);
+  /**
+   * NOTIFY SESSION UPDATE ACROSS ALL LAYERS (RTDB + SSE Cloud Relay + BroadcastChannel + LocalStorage)
+   */
+  notifySessionUpdate(sessionCode, sessionData) {
+    const code = this.cleanCode(sessionCode);
+    if (!code || !sessionData) return;
 
-  return {
-    success: true,
-    sessionId,
-    sessionCode: code,
-    session: sessionData
-  };
-}
+    // 1. In-process subscribers
+    if (this.sessionListeners.has(code)) {
+      this.sessionListeners.get(code).forEach(cb => {
+        try { cb(sessionData); } catch (e) { console.warn(e); }
+      });
+    }
 
-/**
- * Lookup session by its 6-character code (e.g. TC-7929)
- */
-export async function getSessionByCode(rawCode) {
-  const db = getRTDB();
-  if (!db) return null;
+    // 2. BroadcastChannel for same browser/tabs (0ms latency)
+    if (this.broadcast) {
+      try {
+        this.broadcast.postMessage({
+          type: 'SESSION_UPDATE',
+          sessionCode: code,
+          data: sessionData
+        });
+      } catch (e) {}
+    }
 
-  const code = (rawCode || '').trim().toUpperCase();
-  if (!code) return null;
+    // 3. LocalStorage persistence
+    try {
+      localStorage.setItem(`tc_session_${code}`, JSON.stringify(sessionData));
+    } catch (e) {}
 
-  try {
-    const codeSnap = await get(ref(db, `/sessionCodes/${code}`));
-    if (!codeSnap.exists()) return null;
+    // 4. Global Cloud Relay (ntfy.sh SSE/REST for cross-device & cellular connection)
+    this.publishToCloudRelay(code, sessionData);
+  }
 
-    const sessionId = codeSnap.val();
-    const sessionSnap = await get(ref(db, `/sessions/${sessionId}`));
-    if (!sessionSnap.exists()) return null;
+  async publishToCloudRelay(code, sessionData) {
+    if (!code || !sessionData) return;
+    try {
+      await fetch(`https://ntfy.sh/tc_suhu_${code}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      });
+    } catch (err) {
+      // Quiet fail if offline
+    }
+  }
 
-    return {
-      sessionId,
-      session: sessionSnap.val()
-    };
-  } catch (err) {
-    console.error('[RTDB] Error looking up session code:', err);
+  async fetchFromCloudRelay(code) {
+    if (!code) return null;
+    try {
+      const res = await fetch(`https://ntfy.sh/tc_suhu_${code}/json?poll=1&since=all`);
+      if (!res.ok) return null;
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const item = JSON.parse(lines[i]);
+          if (item && item.message) {
+            const data = JSON.parse(item.message);
+            if (data && this.cleanCode(data.sessionCode || data.code) === code) {
+              return data;
+            }
+          }
+        } catch (e) {}
+      }
+    } catch (err) {}
     return null;
   }
-}
 
-/**
- * Claim an 8-group slot atomically (Kelompok 1 - 8)
- * Concurrency guard: prevents 2 devices from taking the same group number.
- */
-export async function claimGroupSlot(sessionId, groupNumber, groupName, members, customDeviceToken = null) {
-  await ensureAuthenticated();
-  const db = getRTDB();
-  if (!db) throw new Error('Database Realtime tidak tersedia.');
-
-  const num = Number(groupNumber);
-  if (isNaN(num) || num < 1 || num > 8) {
-    throw new Error('Nomor kelompok harus antara 1 sampai 8.');
+  listenToCloudRelay(code, callback) {
+    if (!code || typeof EventSource === 'undefined') return () => {};
+    try {
+      const eventSource = new EventSource(`https://ntfy.sh/tc_suhu_${code}/sse`);
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload && payload.message) {
+            const data = JSON.parse(payload.message);
+            if (data && this.cleanCode(data.sessionCode || data.code) === code) {
+              try {
+                localStorage.setItem(`tc_session_${code}`, JSON.stringify(data));
+              } catch (e) {}
+              callback(data);
+            }
+          }
+        } catch (e) {}
+      };
+      return () => {
+        eventSource.close();
+      };
+    } catch (err) {
+      return () => {};
+    }
   }
 
-  const deviceToken = customDeviceToken || getDeviceToken();
-  const groupKey = `group${num}`;
-  const groupRef = ref(db, `/sessionGroups/${sessionId}/${groupKey}`);
+  getLocalSession(code) {
+    try {
+      const raw = localStorage.getItem(`tc_session_${code}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
-  const tx = await runTransaction(groupRef, (currentData) => {
-    if (currentData !== null) {
-      // Slot already occupied. Allow rejoin ONLY if same deviceToken
-      if (currentData.deviceToken === deviceToken) {
-        currentData.isOnline = true;
-        currentData.lastActive = Date.now();
-        return currentData;
-      }
-      // Taken by another device! Abort transaction.
-      return undefined;
+  /**
+   * CREATE A NEW TOURNAMENT SESSION (ADMIN)
+   */
+  async createSession(title = 'Turnamen Suhu IPA Kelas VII') {
+    await ensureAuthenticated();
+
+    // 4-digit code e.g. TC7929 or TC-7929
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let rand = '';
+    for (let i = 0; i < 4; i++) {
+      rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const sessionCode = `TC-${rand}`;
+    const code = this.cleanCode(sessionCode);
+
+    const sessionData = {
+      id: code,
+      sessionCode: sessionCode,
+      code: code,
+      title: title.trim(),
+      status: 'waiting', // waiting | started | paused | ended
+      createdAt: this.getSyncedServerNow(),
+      startedAt: null,
+      endedAt: null,
+      totalDurationSeconds: 0,
+      teams: {}
+    };
+
+    // Pre-initialize empty teams 1 to 8
+    for (let i = 1; i <= 8; i++) {
+      sessionData.teams[`group${i}`] = null;
     }
 
-    // Slot is free: Claim atomically
-    return {
-      groupNumber: num,
-      groupName: (groupName || `Kelompok ${num}`).trim(),
-      members: Array.isArray(members) ? members : [],
-      deviceToken: deviceToken,
-      status: 'ready', // ready | in_game | finished
-      isOnline: true,
-      lastActive: Date.now(),
-      scores: { quiz: 0, memory: 0, calc: 0, total: 0 },
-      completedModes: { quiz: false, memory: false, calc: false },
-      totalDurationSeconds: 0
-    };
-  });
+    // 1. Write to Firebase RTDB
+    if (this.db) {
+      try {
+        const sRef = ref(this.db, `sessions/${code}`);
+        await set(sRef, sessionData);
+      } catch (err) {
+        console.warn('Firebase set error (using Cloud Relay):', err.message);
+      }
+    }
 
-  if (!tx.committed) {
+    // 2. Broadcast across all layers
+    this.notifySessionUpdate(code, sessionData);
+
     return {
-      success: false,
-      message: `Kelompok ${num} sudah dipilih oleh perangkat lain! Silakan pilih kelompok yang masih tersedia.`
+      success: true,
+      sessionId: code,
+      sessionCode: sessionCode,
+      session: sessionData
     };
   }
 
-  const registeredGroup = tx.snapshot.val();
+  /**
+   * GET SESSION BY CODE (Firebase RTDB -> Cloud Relay -> LocalStorage)
+   */
+  async getSession(rawCode) {
+    const code = this.cleanCode(rawCode);
+    if (!code) return null;
 
-  // Update initial leaderboard row
-  const lbRef = ref(db, `/leaderboards/${sessionId}/${groupKey}`);
-  await set(lbRef, {
-    groupNumber: num,
-    groupName: registeredGroup.groupName,
-    membersCount: (registeredGroup.members || []).length,
-    skorQuiz: 0,
-    skorMemory: 0,
-    skorNumberChains: 0,
-    totalSkor: 0,
-    totalDurationSeconds: 0,
-    status: 'ready',
-    predicate: 'TEMPERATURE ROOKIE',
-    lastUpdate: Date.now()
-  });
+    // 1. Try Firebase RTDB
+    if (this.db) {
+      try {
+        const sRef = ref(this.db, `sessions/${code}`);
+        const snap = await get(sRef);
+        if (snap.exists()) {
+          const val = snap.val();
+          try {
+            localStorage.setItem(`tc_session_${code}`, JSON.stringify(val));
+          } catch (e) {}
+          return val;
+        }
+      } catch (e) {
+        console.warn('RTDB getSession error, trying Cloud Relay:', e.message);
+      }
+    }
 
-  return {
-    success: true,
-    group: registeredGroup
-  };
-}
+    // 2. Try Global Cloud Relay
+    const cloudSession = await this.fetchFromCloudRelay(code);
+    if (cloudSession) {
+      try {
+        localStorage.setItem(`tc_session_${code}`, JSON.stringify(cloudSession));
+      } catch (e) {}
+      return cloudSession;
+    }
 
-/**
- * Release group slot if student backs out from lobby
- */
-export async function releaseGroupSlot(sessionId, groupNumber, deviceToken) {
-  const db = getRTDB();
-  if (!db || !sessionId || !groupNumber) return false;
+    // 3. Fallback to LocalStorage
+    return this.getLocalSession(code);
+  }
 
-  const groupKey = `group${groupNumber}`;
-  const groupRef = ref(db, `/sessionGroups/${sessionId}/${groupKey}`);
+  /**
+   * CLAIM GROUP SLOT (1 to 8)
+   */
+  async claimGroupSlot(rawCode, groupNumber, groupName, members, customDeviceToken = null) {
+    const code = this.cleanCode(rawCode);
+    const num = Number(groupNumber);
+    if (isNaN(num) || num < 1 || num > 8) {
+      throw new Error('Nomor kelompok harus antara 1 sampai 8.');
+    }
 
-  const snap = await get(groupRef);
-  if (snap.exists() && snap.val().deviceToken === deviceToken) {
-    await set(groupRef, null);
-    await set(ref(db, `/leaderboards/${sessionId}/${groupKey}`), null);
+    const deviceToken = customDeviceToken || getDeviceToken();
+    let session = await this.getSession(code);
+    if (!session) {
+      throw new Error(`Sesi dengan kode ${rawCode} tidak ditemukan.`);
+    }
+
+    if (!session.teams) session.teams = {};
+    const groupKey = `group${num}`;
+    const existing = session.teams[groupKey];
+
+    // Check if slot already taken
+    if (existing && existing.claimed) {
+      if (existing.deviceToken !== deviceToken) {
+        return {
+          success: false,
+          message: `Kelompok ${num} sudah dipilih oleh perangkat lain! Silakan pilih nomor kelompok lain.`
+        };
+      }
+      // Re-connection from same device
+      existing.isOnline = true;
+      existing.lastActive = this.getSyncedServerNow();
+    } else {
+      // New claim
+      session.teams[groupKey] = {
+        groupNumber: num,
+        number: num,
+        groupName: (groupName || `Kelompok ${num}`).trim(),
+        name: (groupName || `Kelompok ${num}`).trim(),
+        members: Array.isArray(members) ? members : [],
+        deviceToken: deviceToken,
+        claimed: true,
+        ready: true,
+        status: session.status === 'started' ? 'in_game' : 'ready',
+        isOnline: true,
+        joinedAt: this.getSyncedServerNow(),
+        lastActive: this.getSyncedServerNow(),
+        scores: { quiz: 0, memory: 0, calc: 0, total: 0 },
+        completedModes: { quiz: false, memory: false, calc: false },
+        totalDurationSeconds: 0,
+        predicate: 'TEMPERATURE ROOKIE'
+      };
+    }
+
+    const claimedGroup = session.teams[groupKey];
+
+    // Push to Firebase RTDB
+    if (this.db) {
+      try {
+        const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
+        await set(teamRef, claimedGroup);
+      } catch (err) {
+        console.warn('Firebase team set error:', err.message);
+      }
+    }
+
+    // Broadcast across all layers
+    this.notifySessionUpdate(code, session);
+
+    return {
+      success: true,
+      group: claimedGroup
+    };
+  }
+
+  /**
+   * RELEASE GROUP SLOT
+   */
+  async releaseGroupSlot(rawCode, groupNumber, deviceToken) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session || !session.teams) return false;
+
+    const groupKey = `group${groupNumber}`;
+    const slot = session.teams[groupKey];
+    if (slot && slot.deviceToken === deviceToken) {
+      session.teams[groupKey] = null;
+
+      if (this.db) {
+        try {
+          const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
+          await set(teamRef, null);
+        } catch (e) {}
+      }
+
+      this.notifySessionUpdate(code, session);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * LISTEN TO SESSION STATUS AND DATA
+   */
+  listenToSession(rawCode, callback) {
+    const code = this.cleanCode(rawCode);
+    if (!code) return () => {};
+
+    if (!this.sessionListeners.has(code)) {
+      this.sessionListeners.set(code, new Set());
+    }
+    this.sessionListeners.get(code).add(callback);
+
+    // Initial fetch
+    this.getSession(code).then(s => {
+      if (s) callback(s);
+    });
+
+    // 1. Firebase Live RTDB Listener
+    let fbUnsub = null;
+    if (this.db) {
+      try {
+        const sRef = ref(this.db, `sessions/${code}`);
+        fbUnsub = onValue(sRef, (snap) => {
+          const val = snap.val();
+          if (val) {
+            this.notifySessionUpdate(code, val);
+          }
+        });
+      } catch (e) {}
+    }
+
+    // 2. Global Cloud Relay SSE Listener
+    const cleanupSSE = this.listenToCloudRelay(code, (data) => {
+      if (this.sessionListeners.has(code)) {
+        this.sessionListeners.get(code).forEach(cb => cb(data));
+      }
+    });
+
+    // 3. LocalStorage storage event
+    const storageHandler = (e) => {
+      if (e.key === `tc_session_${code}` && e.newValue) {
+        try {
+          const val = JSON.parse(e.newValue);
+          callback(val);
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    return () => {
+      if (this.sessionListeners.has(code)) {
+        this.sessionListeners.get(code).delete(callback);
+      }
+      if (fbUnsub && this.db) {
+        try { off(ref(this.db, `sessions/${code}`)); } catch (e) {}
+      }
+      if (cleanupSSE) cleanupSSE();
+      window.removeEventListener('storage', storageHandler);
+    };
+  }
+
+  /**
+   * LISTEN TO 8 LOBBY SLOTS
+   */
+  listenToLobbyGroups(rawCode, callback) {
+    return this.listenToSession(rawCode, (session) => {
+      if (!session) {
+        callback({});
+        return;
+      }
+      callback(session.teams || {});
+    });
+  }
+
+  /**
+   * LISTEN TO REAL-TIME LEADERBOARD
+   */
+  listenToLeaderboard(rawCode, callback) {
+    return this.listenToSession(rawCode, (session) => {
+      if (!session || !session.teams) {
+        callback([]);
+        return;
+      }
+
+      const list = [];
+      for (let i = 1; i <= 8; i++) {
+        const t = session.teams[`group${i}`];
+        if (t && t.claimed) {
+          const totalSkor = t.scores?.total || 0;
+          list.push({
+            groupNumber: t.groupNumber || i,
+            groupName: t.groupName || t.name || `Kelompok ${i}`,
+            membersCount: (t.members || []).length,
+            skorQuiz: t.scores?.quiz || 0,
+            skorMemory: t.scores?.memory || 0,
+            skorNumberChains: t.scores?.calc || 0,
+            totalSkor: totalSkor,
+            totalDurationSeconds: t.totalDurationSeconds || 0,
+            status: t.status || 'ready',
+            predicate: t.predicate || getPredicate(totalSkor).title,
+            lastUpdate: t.lastActive || Date.now()
+          });
+        }
+      }
+
+      // Ranking sort: 1. Total score DESC, 2. Duration ASC
+      list.sort((a, b) => {
+        if (b.totalSkor !== a.totalSkor) return b.totalSkor - a.totalSkor;
+        return a.totalDurationSeconds - b.totalDurationSeconds;
+      });
+
+      callback(list);
+    });
+  }
+
+  /**
+   * START TOURNAMENT TOGETHER (ADMIN)
+   */
+  async startTournamentTogether(rawCode) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session) return false;
+
+    session.status = 'started';
+    session.startedAt = this.getSyncedServerNow();
+
+    if (session.teams) {
+      for (let i = 1; i <= 8; i++) {
+        const k = `group${i}`;
+        if (session.teams[k]) {
+          session.teams[k].status = 'in_game';
+        }
+      }
+    }
+
+    if (this.db) {
+      try {
+        const sRef = ref(this.db, `sessions/${code}`);
+        await set(sRef, session);
+      } catch (e) {}
+    }
+
+    this.notifySessionUpdate(code, session);
     return true;
   }
-  return false;
-}
 
-/**
- * Subscribe to Session status changes (Waiting, Started, Paused, Ended)
- */
-export function listenToSession(sessionId, callback) {
-  const db = getRTDB();
-  if (!db || !sessionId) return () => {};
+  async pauseTournament(rawCode) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session) return;
 
-  const sRef = ref(db, `/sessions/${sessionId}`);
-  const listener = onValue(sRef, (snap) => {
-    if (callback) callback(snap.exists() ? snap.val() : null);
-  });
+    session.status = 'paused';
+    session.pausedAt = this.getSyncedServerNow();
 
-  return () => off(sRef, 'value', listener);
-}
-
-/**
- * Subscribe to 8-group slots in the lobby
- */
-export function listenToLobbyGroups(sessionId, callback) {
-  const db = getRTDB();
-  if (!db || !sessionId) return () => {};
-
-  const groupsRef = ref(db, `/sessionGroups/${sessionId}`);
-  const listener = onValue(groupsRef, (snap) => {
-    const val = snap.val() || {};
-    if (callback) callback(val);
-  });
-
-  return () => off(groupsRef, 'value', listener);
-}
-
-/**
- * Subscribe to Real-time Leaderboard table
- */
-export function listenToLeaderboard(sessionId, callback) {
-  const db = getRTDB();
-  if (!db || !sessionId) return () => {};
-
-  const lbRef = ref(db, `/leaderboards/${sessionId}`);
-  const listener = onValue(lbRef, (snap) => {
-    const val = snap.val() || {};
-    const list = Object.keys(val).map(k => val[k]);
-    // Sort ranking:
-    // 1. Total score DESC
-    // 2. Duration ASC (faster is better)
-    list.sort((a, b) => {
-      if ((b.totalSkor || 0) !== (a.totalSkor || 0)) {
-        return (b.totalSkor || 0) - (a.totalSkor || 0);
-      }
-      return (a.totalDurationSeconds || 0) - (b.totalDurationSeconds || 0);
-    });
-    if (callback) callback(list);
-  });
-
-  return () => off(lbRef, 'value', listener);
-}
-
-/**
- * Admin: Synchronized tournament start for all groups
- */
-export async function startTournamentTogether(sessionId) {
-  await ensureAuthenticated();
-  const db = getRTDB();
-  if (!db) return false;
-
-  const updates = {};
-  updates[`/sessions/${sessionId}/status`] = 'started';
-  updates[`/sessions/${sessionId}/startedAt`] = Date.now();
-
-  // Update all registered group statuses to 'in_game'
-  const groupsSnap = await get(ref(db, `/sessionGroups/${sessionId}`));
-  if (groupsSnap.exists()) {
-    const groups = groupsSnap.val();
-    for (const key in groups) {
-      if (groups[key]) {
-        updates[`/sessionGroups/${sessionId}/${key}/status`] = 'in_game';
-        updates[`/leaderboards/${sessionId}/${key}/status`] = 'in_game';
-      }
+    if (this.db) {
+      try {
+        await update(ref(this.db, `sessions/${code}`), { status: 'paused', pausedAt: session.pausedAt });
+      } catch (e) {}
     }
+
+    this.notifySessionUpdate(code, session);
   }
 
-  await update(ref(db), updates);
-  return true;
-}
+  async resumeTournament(rawCode) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session) return;
 
-/**
- * Admin: Pause tournament
- */
-export async function pauseTournament(sessionId) {
-  const db = getRTDB();
-  if (!db) return;
-  await update(ref(db, `/sessions/${sessionId}`), {
-    status: 'paused',
-    pausedAt: Date.now()
-  });
-}
+    session.status = 'started';
 
-/**
- * Admin: Resume tournament
- */
-export async function resumeTournament(sessionId) {
-  const db = getRTDB();
-  if (!db) return;
-  await update(ref(db, `/sessions/${sessionId}`), {
-    status: 'started'
-  });
-}
+    if (this.db) {
+      try {
+        await update(ref(this.db, `sessions/${code}`), { status: 'started' });
+      } catch (e) {}
+    }
 
-/**
- * Admin: End tournament
- */
-export async function endTournament(sessionId) {
-  const db = getRTDB();
-  if (!db) return;
-  await update(ref(db, `/sessions/${sessionId}`), {
-    status: 'ended',
-    endedAt: Date.now()
-  });
-}
+    this.notifySessionUpdate(code, session);
+  }
 
-/**
- * Submit answer with direct Realtime Database atomic transaction
- * Used as primary or client fallback ensuring zero double-scoring and strict validation
- */
-export async function submitAnswerDirect(sessionId, groupNumber, deviceToken, mode, itemId, answer, isCorrect, scoreWeight, timeSpentSeconds = 0) {
-  await ensureAuthenticated();
-  const db = getRTDB();
-  if (!db) throw new Error('Database Realtime tidak tersedia.');
+  async endTournament(rawCode) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session) return;
 
-  const groupKey = `group${groupNumber}`;
-  const subKey = `${mode}_${itemId}`;
-  const subRef = ref(db, `/submissions/${sessionId}/${groupKey}/${subKey}`);
+    session.status = 'ended';
+    session.endedAt = this.getSyncedServerNow();
 
-  // Check if already answered
-  const subSnap = await get(subRef);
-  if (subSnap.exists()) {
+    if (this.db) {
+      try {
+        await update(ref(this.db, `sessions/${code}`), { status: 'ended', endedAt: session.endedAt });
+      } catch (e) {}
+    }
+
+    this.notifySessionUpdate(code, session);
+  }
+
+  /**
+   * SUBMIT ANSWER DIRECT
+   */
+  async submitAnswerDirect(rawCode, groupNumber, deviceToken, mode, itemId, answer, isCorrect, scoreWeight, timeSpentSeconds = 0) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session || !session.teams) {
+      throw new Error('Sesi tidak ditemukan.');
+    }
+
+    const groupKey = `group${groupNumber}`;
+    const team = session.teams[groupKey];
+    if (!team) {
+      throw new Error(`Data Kelompok ${groupNumber} tidak ditemukan.`);
+    }
+
+    if (!session.submissions) session.submissions = {};
+    const subKey = `${groupKey}_${mode}_${itemId}`;
+
+    if (session.submissions[subKey]) {
+      return {
+        duplicate: true,
+        awardedScore: session.submissions[subKey].awardedScore || 0,
+        isCorrect: session.submissions[subKey].isCorrect || false
+      };
+    }
+
+    const awardedScore = isCorrect ? scoreWeight : 0;
+
+    session.submissions[subKey] = {
+      mode,
+      itemId,
+      answer,
+      isCorrect,
+      awardedScore,
+      deviceToken,
+      submittedAt: this.getSyncedServerNow()
+    };
+
+    if (!team.scores) team.scores = { quiz: 0, memory: 0, calc: 0, total: 0 };
+    if (mode === 'quiz') team.scores.quiz = Math.min(35, Math.round(((team.scores.quiz || 0) + awardedScore) * 10) / 10);
+    if (mode === 'memory') team.scores.memory = Math.min(30, Math.round(((team.scores.memory || 0) + awardedScore) * 10) / 10);
+    if (mode === 'calc') team.scores.calc = Math.min(35, Math.round(((team.scores.calc || 0) + awardedScore) * 10) / 10);
+
+    team.scores.total = Math.min(100, Math.round(((team.scores.quiz || 0) + (team.scores.memory || 0) + (team.scores.calc || 0)) * 10) / 10);
+    team.predicate = getPredicate(team.scores.total).title;
+    team.lastActive = this.getSyncedServerNow();
+
+    if (timeSpentSeconds > 0) {
+      team.totalDurationSeconds = (team.totalDurationSeconds || 0) + Number(timeSpentSeconds);
+    }
+
+    if (this.db) {
+      try {
+        const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
+        await set(teamRef, team);
+        const subRef = ref(this.db, `sessions/${code}/submissions/${subKey}`);
+        await set(subRef, session.submissions[subKey]);
+      } catch (e) {}
+    }
+
+    this.notifySessionUpdate(code, session);
+
     return {
-      duplicate: true,
-      awardedScore: subSnap.val().awardedScore || 0,
-      isCorrect: subSnap.val().isCorrect || false
+      duplicate: false,
+      isCorrect,
+      awardedScore,
+      scores: team.scores
     };
   }
 
-  const awardedScore = isCorrect ? scoreWeight : 0;
+  async markModeCompleted(rawCode, groupNumber, modeKey) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session || !session.teams) return;
 
-  // Record submission
-  await set(subRef, {
-    mode,
-    itemId,
-    answer,
-    isCorrect,
-    awardedScore,
-    deviceToken,
-    submittedAt: Date.now()
-  });
+    const groupKey = `group${groupNumber}`;
+    const team = session.teams[groupKey];
+    if (team) {
+      if (!team.completedModes) team.completedModes = {};
+      team.completedModes[modeKey] = true;
 
-  // Update group total score atomically
-  const groupRef = ref(db, `/sessionGroups/${sessionId}/${groupKey}`);
-  let finalGroupData = null;
-
-  await runTransaction(groupRef, (curr) => {
-    if (!curr) return curr;
-    if (!curr.scores) curr.scores = { quiz: 0, memory: 0, calc: 0, total: 0 };
-
-    if (mode === 'quiz') curr.scores.quiz = Math.min(35, Math.round(((curr.scores.quiz || 0) + awardedScore) * 10) / 10);
-    if (mode === 'memory') curr.scores.memory = Math.min(30, Math.round(((curr.scores.memory || 0) + awardedScore) * 10) / 10);
-    if (mode === 'calc') curr.scores.calc = Math.min(35, Math.round(((curr.scores.calc || 0) + awardedScore) * 10) / 10);
-
-    curr.scores.total = Math.min(100, Math.round((curr.scores.quiz + curr.scores.memory + curr.scores.calc) * 10) / 10);
-
-    if (timeSpentSeconds > 0) {
-      curr.totalDurationSeconds = (curr.totalDurationSeconds || 0) + Number(timeSpentSeconds);
+      if (this.db) {
+        try {
+          await update(ref(this.db, `sessions/${code}/teams/${groupKey}/completedModes`), { [modeKey]: true });
+        } catch (e) {}
+      }
+      this.notifySessionUpdate(code, session);
     }
-    curr.lastActive = Date.now();
-    finalGroupData = curr;
-    return curr;
-  });
-
-  // Update leaderboard summary
-  if (finalGroupData) {
-    const pred = getPredicate(finalGroupData.scores.total);
-    await update(ref(db, `/leaderboards/${sessionId}/${groupKey}`), {
-      skorQuiz: finalGroupData.scores.quiz,
-      skorMemory: finalGroupData.scores.memory,
-      skorNumberChains: finalGroupData.scores.calc,
-      totalSkor: finalGroupData.scores.total,
-      totalDurationSeconds: finalGroupData.totalDurationSeconds || 0,
-      predicate: pred.title,
-      lastUpdate: Date.now()
-    });
   }
 
+  async finishGroupGame(rawCode, groupNumber) {
+    const code = this.cleanCode(rawCode);
+    let session = await this.getSession(code);
+    if (!session || !session.teams) return;
+
+    const groupKey = `group${groupNumber}`;
+    const team = session.teams[groupKey];
+    if (team) {
+      team.status = 'finished';
+
+      if (this.db) {
+        try {
+          await update(ref(this.db, `sessions/${code}/teams/${groupKey}`), { status: 'finished' });
+        } catch (e) {}
+      }
+      this.notifySessionUpdate(code, session);
+    }
+  }
+}
+
+export const rtdbEngine = new RealtimeDatabaseEngine();
+
+// Export function wrappers matching the API
+export const getRTDB = () => rtdbEngine.db;
+export const getSyncedServerNow = () => rtdbEngine.getSyncedServerNow();
+export const createSession = (title) => rtdbEngine.createSession(title);
+export const getSessionByCode = async (rawCode) => {
+  const session = await rtdbEngine.getSession(rawCode);
+  if (!session) return null;
   return {
-    duplicate: false,
-    isCorrect,
-    awardedScore,
-    scores: finalGroupData ? finalGroupData.scores : null
+    sessionId: session.code || rtdbEngine.cleanCode(rawCode),
+    session: session
   };
-}
-
-/**
- * Mark a mode as completed for a group
- */
-export async function markModeCompleted(sessionId, groupNumber, modeKey) {
-  const db = getRTDB();
-  if (!db || !sessionId || !groupNumber) return;
-
-  const groupKey = `group${groupNumber}`;
-  const updates = {};
-  updates[`/sessionGroups/${sessionId}/${groupKey}/completedModes/${modeKey}`] = true;
-  await update(ref(db), updates);
-}
-
-/**
- * Finish the game for a group
- */
-export async function finishGroupGame(sessionId, groupNumber) {
-  const db = getRTDB();
-  if (!db || !sessionId || !groupNumber) return;
-
-  const groupKey = `group${groupNumber}`;
-  const updates = {};
-  updates[`/sessionGroups/${sessionId}/${groupKey}/status`] = 'finished';
-  updates[`/leaderboards/${sessionId}/${groupKey}/status`] = 'finished';
-  await update(ref(db), updates);
-}
+};
+export const claimGroupSlot = (sCode, gNum, gName, mem, dev) => rtdbEngine.claimGroupSlot(sCode, gNum, gName, mem, dev);
+export const releaseGroupSlot = (sCode, gNum, dev) => rtdbEngine.releaseGroupSlot(sCode, gNum, dev);
+export const listenToSession = (sCode, cb) => rtdbEngine.listenToSession(sCode, cb);
+export const listenToLobbyGroups = (sCode, cb) => rtdbEngine.listenToLobbyGroups(sCode, cb);
+export const listenToLeaderboard = (sCode, cb) => rtdbEngine.listenToLeaderboard(sCode, cb);
+export const startTournamentTogether = (sCode) => rtdbEngine.startTournamentTogether(sCode);
+export const pauseTournament = (sCode) => rtdbEngine.pauseTournament(sCode);
+export const resumeTournament = (sCode) => rtdbEngine.resumeTournament(sCode);
+export const endTournament = (sCode) => rtdbEngine.endTournament(sCode);
+export const submitAnswerDirect = (sCode, gNum, dev, m, id, ans, cor, w, t) => rtdbEngine.submitAnswerDirect(sCode, gNum, dev, m, id, ans, cor, w, t);
+export const markModeCompleted = (sCode, gNum, m) => rtdbEngine.markModeCompleted(sCode, gNum, m);
+export const finishGroupGame = (sCode, gNum) => rtdbEngine.finishGroupGame(sCode, gNum);

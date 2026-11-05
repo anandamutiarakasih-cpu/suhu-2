@@ -135,8 +135,9 @@ export class StarChampGame {
     const grp = gameState.group;
     if (sess && grp) {
       try {
+        const sId = sess.code || sess.sessionCode || sess.id;
         const res = await callSubmitAnswer(
-          sess.id,
+          sId,
           grp.groupNumber,
           gameState.deviceToken,
           'quiz',
@@ -224,7 +225,8 @@ export class StarChampGame {
     const sess = gameState.session;
     const grp = gameState.group;
     if (sess && grp) {
-      await markModeCompleted(sess.id, grp.groupNumber, 'quiz');
+      const sId = sess.code || sess.sessionCode || sess.id;
+      await markModeCompleted(sId, grp.groupNumber, 'quiz');
       gameState.markModeDone('quiz');
     }
 

@@ -3,8 +3,7 @@
  */
 
 import { STORAGE_KEYS, getDeviceToken } from "../firebase/config.js";
-import { getRTDB } from "../firebase/database.js";
-import { ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { rtdbEngine } from "../firebase/database.js";
 
 class GameState {
   constructor() {
@@ -83,21 +82,18 @@ class GameState {
       const session = JSON.parse(savedSession);
       const group = JSON.parse(savedGroup);
 
-      if (!session || !session.id || !group || !group.groupNumber) return null;
+      if (!session || !group || !group.groupNumber) return null;
+      const code = session.code || session.sessionCode || session.id;
 
-      // Verify with Realtime Database
-      const db = getRTDB();
-      if (db) {
-        const groupRef = ref(db, `/sessionGroups/${session.id}/group${group.groupNumber}`);
-        const snap = await get(groupRef);
-        if (snap.exists()) {
-          const remoteGroup = snap.val();
-          if (remoteGroup.deviceToken === this.deviceToken) {
-            this.session = session;
-            this.group = remoteGroup;
-            this.notify();
-            return { session: this.session, group: this.group };
-          }
+      // Verify with Realtime Database / Cloud Relay
+      const remoteSession = await rtdbEngine.getSession(code);
+      if (remoteSession && remoteSession.teams) {
+        const remoteGroup = remoteSession.teams[`group${group.groupNumber}`];
+        if (remoteGroup && remoteGroup.deviceToken === this.deviceToken) {
+          this.session = remoteSession;
+          this.group = remoteGroup;
+          this.notify();
+          return { session: this.session, group: this.group };
         }
       }
 

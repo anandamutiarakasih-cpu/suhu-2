@@ -143,8 +143,9 @@ export class NumberChainsGame {
       const grp = gameState.group;
       if (sess && grp) {
         try {
+          const sId = sess.code || sess.sessionCode || sess.id;
           const res = await callSubmitAnswer(
-            sess.id,
+            sId,
             grp.groupNumber,
             gameState.deviceToken,
             'calc',
@@ -206,7 +207,8 @@ export class NumberChainsGame {
     const sess = gameState.session;
     const grp = gameState.group;
     if (sess && grp) {
-      await markModeCompleted(sess.id, grp.groupNumber, 'calc');
+      const sId = sess.code || sess.sessionCode || sess.id;
+      await markModeCompleted(sId, grp.groupNumber, 'calc');
       gameState.markModeDone('calc');
     }
 

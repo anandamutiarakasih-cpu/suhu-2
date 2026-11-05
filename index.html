@@ -1,17 +1,1102 @@
 <!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F97316'><path d='M12 2a4 4 0 0 0-4 4v7.26A6 6 0 1 0 16 13.26V6a4 4 0 0 0-4-4zm0 2a2 2 0 0 1 2 2v2h-4V6a2 2 0 0 1 2-2zm0 16a4 4 0 0 1-2.5-7.12l.5-.38V10h4v2.5l.5.38A4 4 0 0 1 12 20z'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>THERMO CHAMPIONS — Clash of Champions Suhu 1 (IPA Kelas VII SMP)</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  </head>
-  <body class="bg-lightBg text-slate-800 antialiased selection:bg-electric selection:text-navy-950 font-sans min-h-screen">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>THERMO CHAMPIONS — Clash of Champions Suhu (IPA Kelas VII SMP)</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F97316'><path d='M12 2a4 4 0 0 0-4 4v7.26A6 6 0 1 0 16 13.26V6a4 4 0 0 0-4-4zm0 2a2 2 0 0 1 2 2v2h-4V6a2 2 0 0 1 2-2zm0 16a4 4 0 0 1-2.5-7.12l.5-.38V10h4v2.5l.5.38A4 4 0 0 1 12 20z'/></svg>" />
+  
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Pure CSS3 Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Fullscreen Confetti Canvas -->
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+
+  <!-- ======================================================================
+       NAVBAR
+       ====================================================================== -->
+  <header class="navbar no-print">
+    <div class="container navbar-container">
+      
+      <!-- Brand Logo -->
+      <div class="brand">
+        <div class="brand-icon">🔥</div>
+        <div class="brand-text">
+          <h1>THERMO<span>CHAMPIONS</span> <span class="brand-badge">8 KELOMPOK</span></h1>
+          <div class="brand-tagline">Master the Temperature. Become the Champion.</div>
+        </div>
+      </div>
+
+      <!-- Navigation Actions -->
+      <div class="nav-actions">
+        <button type="button" id="btn-nav-leaderboard" class="btn-nav">
+          <span>🏆</span> <span class="nav-label">Leaderboard</span>
+        </button>
+
+        <button type="button" id="btn-nav-material" class="btn-nav">
+          <span>📖</span> <span class="nav-label">Materi</span>
+        </button>
+
+        <button type="button" id="btn-nav-help" class="btn-nav" title="Petunjuk Permainan">
+          <span>❓</span> <span class="nav-label">Petunjuk</span>
+        </button>
+
+        <!-- Sound Toggle -->
+        <button type="button" id="btn-toggle-sound" class="btn-nav" title="Bisukan / Aktifkan Suara">
+          <span id="sound-icon">🔊</span>
+        </button>
+
+        <!-- Group Status Chip (If Active) -->
+        <div id="nav-group-pill" class="group-status-pill" style="display:none;" title="Kelompok yang sedang bertanding">
+          <span id="nav-chip-icon" style="font-size:1.1rem;">👥</span>
+          <div>
+            <div style="font-size:0.75rem; font-weight:800; line-height:1; color:#fff;" id="nav-chip-name">Kelompok 1</div>
+            <div style="font-size:0.65rem; color:var(--electric); font-family:monospace; margin-top:2px;" id="nav-chip-score">0 / 100 Pts</div>
+          </div>
+          <span id="nav-chip-nomor" style="font-size:0.65rem; font-weight:800; background:rgba(255,255,255,0.15); padding:0.15rem 0.35rem; border-radius:0.25rem;">K-1</span>
+          <button type="button" id="btn-nav-logout" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:0.9rem; padding:0.2rem;" title="Keluar / Ganti Kelompok">✕</button>
+        </div>
+
+        <!-- Guest Trigger (If Not In Session) -->
+        <button type="button" id="nav-guest-btn" class="btn-nav btn-nav-primary btn-trigger-start">
+          <span>MULAI BERMAIN</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <main>
+    <!-- ====================================================================
+         VIEW 1: LANDING PAGE
+         ==================================================================== -->
+    <section id="view-landing" class="view-section active">
+      <div class="container hero">
+        
+        <div class="hero-badge">
+          <span>✨</span>
+          <span>KOMPETISI AKADEMIK IPA KELAS VII SMP</span>
+          <span>•</span>
+          <span style="color:#fff;">EDISI KHUSUS 8 KELOMPOK</span>
+        </div>
+
+        <h1 class="hero-title">
+          THERMO <span>CHAMPIONS</span>
+        </h1>
+
+        <p class="hero-tagline">
+          "Master the Temperature. Become the Champion."
+        </p>
+
+        <p class="hero-desc">
+          Tantangan sains interaktif berbasis kelompok! Bersama anggota tim kalian, diskusikan konsep suhu, 
+          uji daya ingat skala termometer, dan taklukkan perhitungan konversi berantai untuk membawa kelompok kalian ke puncak juara!
+        </p>
+
+        <div class="hero-actions">
+          <button type="button" class="btn-hero-primary btn-trigger-start">
+            <span>MULAI BERMAIN</span>
+            <span>→</span>
+          </button>
+
+          <button type="button" class="btn-hero-secondary" onclick="window.app.showView('material')">
+            <span>📖</span>
+            <span>Pelajari Materi Suhu</span>
+          </button>
+        </div>
+
+        <!-- Highlights Grid -->
+        <div class="hero-highlights">
+          <div class="highlight-card">
+            <div class="h-label">Format Permainan</div>
+            <div class="h-val">8 Kelompok Sains</div>
+          </div>
+          <div class="highlight-card">
+            <div class="h-label">Metode Bermain</div>
+            <div class="h-val">Diskusi & Kerja Tim</div>
+          </div>
+          <div class="highlight-card">
+            <div class="h-label">Total Skor Maksimal</div>
+            <div class="h-val" style="color:var(--orange);">100 Poin</div>
+          </div>
+          <div class="highlight-card">
+            <div class="h-label">Gelar Tertinggi</div>
+            <div class="h-val" style="color:#d97706;">🏆 Thermo Champion</div>
+          </div>
+        </div>
+
+        <!-- 3 Modes Presentation -->
+        <div style="margin-top:3.5rem; text-align:left;">
+          <div style="text-align:center; margin-bottom:2rem;">
+            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--deepblue); letter-spacing:0.05em;">Tiga Arena Tantangan Bersama</div>
+            <h2 style="font-size:1.75rem; font-weight:900; color:var(--navy); margin-top:0.25rem;">Tantangan Cerdas Menuju Juara Kelompok</h2>
+          </div>
+
+          <div class="modes-grid">
+            <div class="mode-card">
+              <div>
+                <div class="mode-card-header">
+                  <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--deepblue), #2563eb);">🧠</div>
+                  <div class="mode-badge">35 POIN</div>
+                </div>
+                <div class="mode-tag" style="color:var(--deepblue);">Mode 1 — StarChamp Challenge</div>
+                <div class="mode-title">THERMO QUIZ</div>
+                <p class="mode-desc">10 soal pilihan ganda cepat konsep suhu, termometer klinis/laboratorium, dan prinsip kesetimbangan suhu dengan waktu 30 detik per soal.</p>
+              </div>
+            </div>
+
+            <div class="mode-card">
+              <div>
+                <div class="mode-card-header">
+                  <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--navy), var(--deepblue));">⚡</div>
+                  <div class="mode-badge" style="color:var(--navy);">30 POIN</div>
+                </div>
+                <div class="mode-tag" style="color:var(--deepblue);">Mode 2 — Memory Madness</div>
+                <div class="mode-title">THERMO MEMORY</div>
+                <p class="mode-desc">Hafalkan 10 kartu titik tetap skala termometer selama 30 detik pada Fase Memorization, lalu jawab 10 tantangan recall ingatan cepat bersama kelompok.</p>
+              </div>
+            </div>
+
+            <div class="mode-card">
+              <div>
+                <div class="mode-card-header">
+                  <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--orange), #f59e0b);">🔢</div>
+                  <div class="mode-badge" style="color:var(--orange);">35 POIN</div>
+                </div>
+                <div class="mode-tag" style="color:var(--orange);">Mode 3 — Number Chains</div>
+                <div class="mode-title">THERMO CALCULATION</div>
+                <p class="mode-desc">Rangkaian 5 tahap perhitungan konversi suhu berurutan dari tingkat Easy hingga Hard rantai bertingkat (Reamur ke Celsius lalu ke Fahrenheit).</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align:center; margin-top:2rem;">
+            <button type="button" class="btn-hero-primary btn-trigger-start">
+              <span>MULAI BERMAIN SEKARANG</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 2: PEMILIHAN 8 KELOMPOK & IDENTITAS
+         ==================================================================== -->
+    <section id="view-group-select" class="view-section">
+      <div class="container">
+        
+        <div class="group-select-wrapper">
+          
+          <div class="group-select-header">
+            <h2>PILIH KELOMPOK KALIAN</h2>
+            <p>Pilih satu kelompok untuk memulai tantangan. Seluruh anggota kelompok akan bermain bersama.</p>
+          </div>
+
+          <div class="group-select-body">
+            
+            <!-- Step 1: Grid 2 Kolom x 4 Baris Pemilihan Kelompok -->
+            <div class="section-label">
+              <span>1. PILIH SATU DARI 8 KELOMPOK</span>
+              <span style="color:var(--error);">*</span>
+            </div>
+
+            <div id="groups-grid-container" class="groups-grid-2x4">
+              <!-- Rendered via JavaScript: KELOMPOK 1 s/d KELOMPOK 8 -->
+            </div>
+
+            <!-- Selected info banner with "Ganti Kelompok" button -->
+            <div class="selected-group-banner">
+              <div class="selected-group-info">
+                <span id="selected-group-banner-icon" class="s-icon">🌡️</span>
+                <span id="selected-group-banner-text" class="s-text">Kelompok yang dipilih: Kelompok 1</span>
+              </div>
+              <button type="button" id="btn-change-group-choice" class="btn-change-group">Ganti Kelompok</button>
+            </div>
+
+            <!-- Step 2: Formulir Identitas Kelompok -->
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); border-radius:1rem; padding:1.5rem; margin-bottom:1.5rem;">
+              <div class="section-label" style="margin-bottom:1rem;">
+                <span>2. IDENTITAS KELOMPOK & DAFTAR ANGGOTA</span>
+              </div>
+
+              <!-- Nama Kelompok Input -->
+              <div class="form-group">
+                <label class="form-label" for="input-nama-kelompok">
+                  Nama Kelompok: <span class="req">*</span>
+                </label>
+                <input type="text" id="input-nama-kelompok" class="form-input" placeholder="Contoh: The Thermo Squad / Celsius Warriors / Juara IPA" maxlength="40" />
+                <span style="font-size:0.7rem; color:var(--slate-400); margin-top:0.25rem; display:block;">Nama kelompok akan dicatat di Papan Peringkat (Leaderboard) & Piagam Juara.</span>
+              </div>
+
+              <!-- Dynamic Members Table -->
+              <div class="form-group">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+                  <label class="form-label" style="margin-bottom:0;">
+                    Daftar Nama Anggota & Nomor Absen: <span class="req">*</span>
+                  </label>
+                  <button type="button" id="btn-add-member-row" class="btn-add-member">+ Tambah Anggota</button>
+                </div>
+
+                <div id="members-dynamic-list" class="members-list">
+                  <!-- Dynamic Rows with Name, Absen, and Delete button -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Ringkasan Identitas Kelompok Sebelum Konfirmasi -->
+            <div class="summary-box">
+              <div class="summary-title">Ringkasan Konfirmasi Kelompok:</div>
+              <div class="summary-details">
+                <div class="summary-item">
+                  <div class="label">Nomor Kelompok</div>
+                  <div id="sum-nomor-kelompok" class="value">Kelompok 1</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Nama Kelompok</div>
+                  <div id="sum-nama-kelompok" class="value">[Belum diisi]</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Jumlah Anggota</div>
+                  <div id="sum-total-anggota" class="value">0 Orang Terdaftar</div>
+                </div>
+              </div>
+
+              <div style="margin-top:0.75rem; font-size:0.75rem; color:var(--slate-600); border-top:1px solid #bae6fd; padding-top:0.5rem;">
+                <div style="font-weight:700; color:var(--deepblue); margin-bottom:0.25rem;">Daftar Anggota Tim:</div>
+                <ul id="sum-members-preview" style="list-style:disc; margin-left:1.25rem; line-height:1.5;">
+                  <li class="text-slate-400 italic">Belum ada anggota diisi</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Step 4: Tombol Konfirmasi dan Mulai -->
+            <div>
+              <button type="button" id="btn-confirm-start-group" class="btn-confirm-start">
+                <span>KONFIRMASI DAN MULAI</span>
+                <span>→</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 3: DASHBOARD KELOMPOK
+         ==================================================================== -->
+    <section id="view-dashboard" class="view-section">
+      <div class="container">
+        
+        <!-- Welcome Banner -->
+        <div class="group-dashboard-banner">
+          <div class="group-dashboard-header">
+            <div>
+              <div class="team-badge-pill">
+                <span id="dash-team-badge">👥</span>
+                <span id="dash-team-nomor">Kelompok 1</span>
+                <span>•</span>
+                <span>KOMPETISI KELOMPOK</span>
+              </div>
+              <h2 id="dash-team-title" class="team-title">The Thermo Squad</h2>
+              <p id="dash-team-theme" style="font-size:0.85rem; color:var(--slate-300); margin-top:0.25rem;"></p>
+
+              <div style="margin-top:0.75rem; font-size:0.75rem; color:var(--slate-300); font-weight:700;">Anggota Kelompok Bermain Bersama:</div>
+              <div id="dash-members-chips" class="team-members-chips">
+                <!-- Members chips rendered here -->
+              </div>
+            </div>
+
+            <div class="team-score-widget">
+              <div class="s-label">Nilai Kumulatif Kelompok</div>
+              <div id="dash-total-score" class="s-val">0 <span>/ 100</span></div>
+              <div id="dash-predicate-badge" class="predicate-pill">TEMPERATURE ROOKIE</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- All Modes Completed Banner -->
+        <div id="dash-all-completed-banner" class="selected-group-banner" style="display:none; background:#ecfdf5; border-color:#a7f3d0; margin-bottom:2rem; align-items:center;">
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <span style="font-size:2rem;">🏆</span>
+            <div>
+              <div style="font-weight:900; color:#065f46; font-size:1.1rem;">Luar Biasa! Kelompok Kalian Telah Menyelesaikan Semua Tantangan!</div>
+              <div style="font-size:0.8rem; color:#047857;">Nilai Akhir: <strong id="dash-all-done-score"></strong>. Hasil kelompok telah tercatat resmi di Leaderboard!</div>
+            </div>
+          </div>
+          <button type="button" class="btn-hero-primary" style="padding:0.6rem 1.25rem; font-size:0.85rem;" onclick="window.app.showResultsView()">
+            <span>Lihat Hasil Akhir & Piagam</span> <span>→</span>
+          </button>
+        </div>
+
+        <!-- 3 Modes Selection Cards -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+          <h3 style="font-size:1.25rem; font-weight:900; color:var(--navy);">Arena Tantangan Kelompok</h3>
+          <span style="font-size:0.75rem; font-weight:700; color:var(--slate-500);">Kerjakan bersama dalam satu perangkat</span>
+        </div>
+
+        <div class="modes-grid">
+          <!-- Mode 1 -->
+          <div class="mode-card">
+            <div>
+              <div class="mode-card-header">
+                <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--deepblue), #2563eb);">🧠</div>
+                <div class="mode-badge">35 POIN</div>
+              </div>
+              <div class="mode-tag" style="color:var(--deepblue);">Mode 1 — StarChamp Challenge</div>
+              <div class="mode-title">THERMO QUIZ</div>
+              <p class="mode-desc">10 soal pemahaman konsep suhu, fungsi termometer, dan kesetimbangan termal dengan timer 30 detik per soal.</p>
+            </div>
+            <div>
+              <div class="mode-status-bar">
+                <span>Status Kelompok:</span>
+                <span id="status-mode-quiz">Belum Dimainkan</span>
+              </div>
+              <button type="button" id="btn-start-quiz" class="btn-start-mode">
+                <span id="btn-mode-quiz-label">Mulai Bersama (Mode 1)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode 2 -->
+          <div class="mode-card">
+            <div>
+              <div class="mode-card-header">
+                <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--navy), var(--deepblue));">⚡</div>
+                <div class="mode-badge" style="color:var(--navy);">30 POIN</div>
+              </div>
+              <div class="mode-tag" style="color:var(--deepblue);">Mode 2 — Memory Madness</div>
+              <div class="mode-title">THERMO MEMORY</div>
+              <p class="mode-desc">Bagi tugas hafalan! Amati 10 kartu titik tetap skala dalam 30 detik, lalu jawab 10 tantangan recall ingatan cepat.</p>
+            </div>
+            <div>
+              <div class="mode-status-bar">
+                <span>Status Kelompok:</span>
+                <span id="status-mode-memory">Belum Dimainkan</span>
+              </div>
+              <button type="button" id="btn-start-memory" class="btn-start-mode" style="background-color:var(--deepblue);">
+                <span id="btn-mode-memory-label">Mulai Bersama (Mode 2)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode 3 -->
+          <div class="mode-card">
+            <div>
+              <div class="mode-card-header">
+                <div class="mode-card-icon" style="background:linear-gradient(135deg, var(--orange), #f59e0b);">🔢</div>
+                <div class="mode-badge" style="color:var(--orange);">35 POIN</div>
+              </div>
+              <div class="mode-tag" style="color:var(--orange);">Mode 3 — Number Chains</div>
+              <div class="mode-title">THERMO CALCULATION</div>
+              <p class="mode-desc">Diskusi hitungan bertingkat! 5 tahap konversi suhu berurutan dari Celsius ke F/R/K hingga rantai Reamur-Celsius-Fahrenheit.</p>
+            </div>
+            <div>
+              <div class="mode-status-bar">
+                <span>Status Kelompok:</span>
+                <span id="status-mode-calc">Belum Dimainkan</span>
+              </div>
+              <button type="button" id="btn-start-calc" class="btn-start-mode" style="background-color:var(--orange);">
+                <span id="btn-mode-calc-label">Mulai Bersama (Mode 3)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 4: MODE 1 — STARCHAMP CHALLENGE
+         ==================================================================== -->
+    <section id="view-quiz" class="view-section">
+      <div class="container game-screen">
+        
+        <div class="game-top-bar">
+          <button type="button" class="btn-nav btn-back-dashboard" style="color:var(--slate-600); font-weight:800;">
+            ← Kembali ke Dashboard
+          </button>
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <span id="quiz-counter" style="font-size:0.85rem; font-weight:800; color:var(--slate-600);">Soal 1 / 10</span>
+            <div id="quiz-timer-pill" class="timer-pill">
+              <span>⏱</span> <span id="quiz-timer-num">30s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-track">
+          <div id="quiz-progress-fill" class="progress-fill" style="width:10%;"></div>
+        </div>
+
+        <div class="game-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+            <span id="quiz-topic-badge" style="font-size:0.75rem; font-weight:800; background:#eff6ff; color:var(--deepblue); padding:0.25rem 0.65rem; border-radius:0.5rem;">Pengertian Suhu</span>
+            <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:var(--slate-400);">Bobot: 3,5 Poin</span>
+          </div>
+
+          <h3 id="quiz-question-text" style="font-size:1.15rem; font-weight:800; color:var(--navy); line-height:1.4; margin-bottom:1.5rem;">
+            Loading question...
+          </h3>
+
+          <div id="quiz-options-container" class="options-stack">
+            <!-- 4 Options rendered here -->
+          </div>
+
+          <div id="quiz-feedback-box" class="feedback-card" style="display:none;"></div>
+
+          <div style="margin-top:1.5rem;">
+            <button type="button" id="btn-quiz-next" class="btn-hero-primary" style="width:100%; justify-content:center; display:none;">
+              Lanjut ke Soal Berikutnya →
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 5: MODE 2 — MEMORY MADNESS
+         ==================================================================== -->
+    <section id="view-memory" class="view-section">
+      <div class="container game-screen">
+        
+        <!-- Phase 1: Memorization -->
+        <div id="mem-phase-memorize">
+          <div class="game-top-bar">
+            <button type="button" class="btn-nav btn-back-dashboard" style="color:var(--slate-600); font-weight:800;">
+              ← Kembali ke Dashboard
+            </button>
+            <div style="display:flex; align-items:center; gap:1rem;">
+              <div class="timer-pill" style="border-color:var(--electric);">
+                <span>⏱</span> <span id="mem-timer-num">30s</span>
+              </div>
+              <button type="button" id="btn-mem-ready-early" class="btn-nav btn-nav-primary" style="padding:0.4rem 0.85rem; font-size:0.75rem;">
+                Kelompok Siap Uji Ingatan!
+              </button>
+            </div>
+          </div>
+
+          <div class="game-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+              <span style="font-size:0.75rem; font-weight:800; background:#f0fdf4; color:#15803d; padding:0.25rem 0.65rem; border-radius:0.5rem;">FASE 1: MEMORIZATION</span>
+              <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:var(--slate-400);">Bobot: 30 Poin</span>
+            </div>
+
+            <h3 style="font-size:1.25rem; font-weight:900; color:var(--navy); margin-bottom:0.5rem;">
+              Bagi Tugas & Hafalkan 10 Kartu Fakta Suhu!
+            </h3>
+            <p style="font-size:0.8rem; color:var(--slate-600); margin-bottom:1.25rem;">
+              Amati kartu titik tetap dan instrumen termometer berikut selama 30 detik bersama kelompok. Setelah waktu habis, kartu disembunyikan untuk fase recall!
+            </p>
+
+            <div id="memory-cards-grid" class="memory-grid-10">
+              <!-- 10 Fact cards -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 2: Recall -->
+        <div id="mem-phase-recall" style="display:none;">
+          <div class="game-top-bar">
+            <button type="button" class="btn-nav btn-back-dashboard" style="color:var(--slate-600); font-weight:800;">
+              ← Kembali ke Dashboard
+            </button>
+            <div style="display:flex; align-items:center; gap:1rem;">
+              <span id="recall-counter" style="font-size:0.85rem; font-weight:800; color:var(--slate-600);">Recall 1 / 10</span>
+              <div id="recall-timer-pill" class="timer-pill">
+                <span>⏱</span> <span id="recall-timer-num">25s</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="game-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+              <span style="font-size:0.75rem; font-weight:800; background:#eff6ff; color:var(--deepblue); padding:0.25rem 0.65rem; border-radius:0.5rem;">FASE 2: RECALL (UJI INGATAN)</span>
+              <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:var(--slate-400);">3 Poin/Soal</span>
+            </div>
+
+            <h3 id="recall-prompt-text" style="font-size:1.15rem; font-weight:800; color:var(--navy); margin-bottom:1.5rem;">
+              Loading recall question...
+            </h3>
+
+            <div id="recall-options-container" class="options-stack">
+              <!-- Recall options -->
+            </div>
+
+            <div id="recall-feedback-box" class="feedback-card" style="display:none;"></div>
+
+            <div style="margin-top:1.5rem;">
+              <button type="button" id="btn-recall-next" class="btn-hero-primary" style="width:100%; justify-content:center; display:none;">
+                Tantangan Berikutnya →
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 6: MODE 3 — NUMBER CHAINS
+         ==================================================================== -->
+    <section id="view-calc" class="view-section">
+      <div class="container game-screen">
+        
+        <div class="game-top-bar">
+          <button type="button" class="btn-nav btn-back-dashboard" style="color:var(--slate-600); font-weight:800;">
+            ← Kembali ke Dashboard
+          </button>
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <span id="calc-stage-counter" style="font-size:0.85rem; font-weight:800; color:var(--slate-600);">Tahap 1 / 5</span>
+            <span id="calc-difficulty-badge" style="font-size:0.75rem; font-weight:800; background:#fef3c7; color:#92400e; padding:0.25rem 0.65rem; border-radius:0.5rem;">Easy</span>
+          </div>
+        </div>
+
+        <div class="game-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+            <span style="font-size:0.75rem; font-weight:800; background:#fff7ed; color:var(--orange); padding:0.25rem 0.65rem; border-radius:0.5rem;">KONVERSI BERTAHAP</span>
+            <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:var(--slate-400);">Bobot: 7 Poin/Tahap</span>
+          </div>
+
+          <h3 id="calc-stage-title" style="font-size:1.25rem; font-weight:900; color:var(--navy); margin-bottom:0.5rem;">
+            Tahap 1: Konversi Celsius ke Fahrenheit
+          </h3>
+          <p id="calc-stage-desc" style="font-size:0.9rem; color:var(--slate-700); line-height:1.5; margin-bottom:1.25rem;"></p>
+
+          <div style="background:var(--slate-50); border:1px solid var(--slate-200); border-radius:0.75rem; padding:0.85rem 1rem; display:flex; justify-content:space-between; margin-bottom:1rem; font-size:0.85rem;">
+            <div>Diketahui: <strong id="calc-given-val" style="color:var(--navy); font-family:monospace;"></strong></div>
+            <div>Satuan Target: <strong id="calc-target-unit" style="color:var(--orange); font-family:monospace;"></strong></div>
+          </div>
+
+          <!-- Formula Hint Toggle -->
+          <div style="margin-bottom:1rem;">
+            <button type="button" id="btn-calc-toggle-hint" style="background:none; border:none; color:var(--deepblue); font-size:0.8rem; font-weight:800; cursor:pointer; text-decoration:underline;">
+              💡 Tampilkan Petunjuk Rumus Bantuan
+            </button>
+            <div id="calc-formula-box" style="display:none; background:#fefce8; border:1px solid #fef08a; padding:0.6rem 0.85rem; border-radius:0.65rem; font-family:monospace; font-size:0.8rem; font-weight:800; color:#854d0e; margin-top:0.4rem;">
+              Rumus: <span id="calc-formula-text"></span>
+            </div>
+          </div>
+
+          <!-- Inputs -->
+          <div id="calc-inputs-container"></div>
+
+          <!-- Solution Derivation -->
+          <div id="calc-solution-box" class="feedback-card" style="display:none;"></div>
+
+          <div style="margin-top:1.5rem;">
+            <button type="button" id="btn-calc-submit" class="btn-hero-primary" style="width:100%; justify-content:center; background:linear-gradient(135deg, var(--orange), #f59e0b);">
+              Periksa & Hitung Skor Tahap Ini
+            </button>
+            <button type="button" id="btn-calc-next" class="btn-hero-primary" style="width:100%; justify-content:center; display:none;">
+              Lanjut ke Tahap Berikutnya →
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 7: HASIL AKHIR KELOMPOK
+         ==================================================================== -->
+    <section id="view-results" class="view-section">
+      <div class="container">
+        
+        <div class="results-card">
+          <div style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:9999px; background:#eff6ff; color:var(--deepblue); font-size:0.75rem; font-weight:800; margin-bottom:1rem;">
+            <span>✨</span> <span>HASIL AKHIR RESMI KOMPETISI</span>
+          </div>
+
+          <h2 style="font-size:2rem; font-weight:900; color:var(--navy); margin-bottom:0.25rem;">
+            HASIL EVALUASI KELOMPOK
+          </h2>
+          <div style="font-size:1.15rem; font-weight:800; color:var(--deepblue);">
+            <span id="res-team-nomor">Kelompok 1</span> — <span id="res-team-nama" style="color:var(--orange);">The Thermo Squad</span>
+          </div>
+
+          <!-- Big Final Score -->
+          <div class="final-score-display">
+            <div style="font-size:0.75rem; font-weight:800; letter-spacing:0.05em; color:var(--slate-300);">NILAI AKHIR KUMULATIF KELOMPOK</div>
+            <div class="num"><span id="res-final-score">0</span> <span class="max">/ 100</span></div>
+            <div id="res-predicate-badge" class="predicate-pill" style="font-size:0.85rem; padding:0.35rem 1rem; margin-top:0.5rem;">THERMO CHAMPION</div>
+          </div>
+
+          <p id="res-appreciation-msg" style="font-size:0.95rem; font-weight:700; color:var(--slate-700); max-width:600px; margin:0 auto 1.5rem;"></p>
+
+          <!-- 3 Modes Score Breakdown -->
+          <div class="scores-breakdown-3">
+            <div class="breakdown-box">
+              <div class="title">StarChamp Challenge</div>
+              <div id="res-score-star" class="val" style="color:var(--deepblue);">0 / 35</div>
+              <div style="font-size:0.75rem; color:var(--slate-500); margin-top:0.25rem;">10 Soal Pilihan Ganda</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="title">Memory Madness</div>
+              <div id="res-score-mem" class="val" style="color:var(--navy);">0 / 30</div>
+              <div style="font-size:0.75rem; color:var(--slate-500); margin-top:0.25rem;">10 Tantangan Ingatan</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="title">Number Chains</div>
+              <div id="res-score-calc" class="val" style="color:var(--orange);">0 / 35</div>
+              <div style="font-size:0.75rem; color:var(--slate-500); margin-top:0.25rem;">5 Tahapan Konversi</div>
+            </div>
+          </div>
+
+          <!-- Stats Grid: Benar, Salah, Akurasi, Waktu -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:1rem; margin-bottom:1.5rem; text-align:left;">
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem;">
+              <div style="font-size:0.7rem; font-weight:700; color:var(--slate-400); text-transform:uppercase;">Jawaban Benar</div>
+              <div id="res-total-correct" style="font-size:1.25rem; font-weight:900; font-family:monospace; color:var(--success);">0 Soal</div>
+            </div>
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem;">
+              <div style="font-size:0.7rem; font-weight:700; color:var(--slate-400); text-transform:uppercase;">Jawaban Salah</div>
+              <div id="res-total-wrong" style="font-size:1.25rem; font-weight:900; font-family:monospace; color:var(--error);">0 Soal</div>
+            </div>
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem;">
+              <div style="font-size:0.7rem; font-weight:700; color:var(--slate-400); text-transform:uppercase;">Akurasi Jawaban</div>
+              <div id="res-accuracy-percent" style="font-size:1.25rem; font-weight:900; font-family:monospace; color:var(--deepblue);">0%</div>
+            </div>
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem;">
+              <div style="font-size:0.7rem; font-weight:700; color:var(--slate-400); text-transform:uppercase;">Waktu Penyelesaian</div>
+              <div id="res-time-spent" style="font-size:1.25rem; font-weight:900; font-family:monospace; color:var(--navy);">0m 0s</div>
+            </div>
+          </div>
+
+          <!-- Anggota Kelompok -->
+          <div style="background:var(--white); border:1px solid var(--slate-200); border-radius:1rem; padding:1.25rem; text-align:left; margin-bottom:2rem;">
+            <div style="font-size:0.8rem; font-weight:800; color:var(--navy); margin-bottom:0.75rem; text-transform:uppercase;">Daftar Anggota Kelompok yang Berjuang:</div>
+            <div id="res-members-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.5rem;">
+              <!-- Members list -->
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:0.75rem;">
+            <button type="button" id="btn-res-certificate" class="btn-hero-primary" style="font-size:0.95rem;">
+              <span>📜</span> <span>Cetak Piagam Juara Kelompok</span>
+            </button>
+            <button type="button" id="btn-res-leaderboard" class="btn-hero-secondary" style="font-size:0.95rem;">
+              <span>🏆</span> <span>Lihat Peringkat Kelompok</span>
+            </button>
+            <button type="button" id="btn-res-dashboard" class="btn-hero-secondary" style="font-size:0.95rem;">
+              <span>←</span> <span>Dashboard Kelompok</span>
+            </button>
+            <button type="button" id="btn-res-new-game" class="btn-hero-secondary" style="font-size:0.95rem; color:var(--slate-500);">
+              <span>🔄</span> <span>Mulai Kelompok Baru</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 8: MODUL MATERI SUHU KELAS VII LENGKAP
+         ==================================================================== -->
+    <section id="view-material" class="view-section">
+      <div class="container" style="max-width:920px; padding-top:2rem;">
+        
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+          <div>
+            <button type="button" class="btn-nav btn-back-dashboard" style="color:var(--slate-600); font-weight:800; padding-left:0;">
+              ← Kembali ke Dashboard
+            </button>
+            <h2 style="font-size:1.75rem; font-weight:900; color:var(--navy); margin-top:0.25rem;">Pusat Materi Pembelajaran: Suhu</h2>
+            <p style="font-size:0.85rem; color:var(--slate-500);">Buku IPA Kelas VII SMP — Terstandarisasi, Lengkap & Terarah</p>
+          </div>
+        </div>
+
+        <!-- Interactive 4-tube Thermometer Visualizer -->
+        <div style="background:var(--white); border:1px solid var(--slate-200); border-radius:1.25rem; padding:1.75rem; margin-bottom:2rem; box-shadow:var(--shadow-md);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <div style="font-size:0.75rem; font-weight:800; color:var(--deepblue); text-transform:uppercase;">Simulasi Interaktif 4 Skala</div>
+              <h3 style="font-size:1.2rem; font-weight:900; color:var(--navy);">Perbandingan Tinggi Kolom Termometer (C, R, F, K)</h3>
+            </div>
+            <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
+              <button type="button" class="btn-sim-preset btn-nav" style="background:#e0f2fe; color:var(--deepblue); font-size:0.75rem; padding:0.3rem 0.6rem;" data-temp="0">Es Lebur (0°C)</button>
+              <button type="button" class="btn-sim-preset btn-nav" style="background:#e0f2fe; color:var(--deepblue); font-size:0.75rem; padding:0.3rem 0.6rem;" data-temp="25">Suhu Kamar (25°C)</button>
+              <button type="button" class="btn-sim-preset btn-nav" style="background:#e0f2fe; color:var(--deepblue); font-size:0.75rem; padding:0.3rem 0.6rem;" data-temp="37">Suhu Badan (37°C)</button>
+              <button type="button" class="btn-sim-preset btn-nav" style="background:#e0f2fe; color:var(--deepblue); font-size:0.75rem; padding:0.3rem 0.6rem;" data-temp="100">Air Didih (100°C)</button>
+            </div>
+          </div>
+
+          <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem; margin-bottom:1.5rem;">
+            <div style="display:flex; justify-content:space-between; font-weight:800; font-size:0.85rem; margin-bottom:0.35rem;">
+              <span>Geser Suhu Acuan (°C):</span>
+              <span id="sim-val-c" style="color:var(--orange); font-family:monospace; font-size:1.15rem;">37°C</span>
+            </div>
+            <input type="range" id="sim-celsius-slider" min="0" max="100" value="37" style="width:100%; cursor:pointer;" />
+          </div>
+
+          <!-- 4 Tubes Visual Grid -->
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; text-align:center;">
+            
+            <!-- C -->
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:1rem; padding:1rem 0.5rem;">
+              <div style="font-weight:900; font-size:0.8rem; color:#1e40af;">Celsius</div>
+              <div id="sim-val-c-label" style="font-family:monospace; font-weight:900; font-size:1.1rem; color:#1d4ed8; margin:0.35rem 0 0.75rem;">37°C</div>
+              <div style="width:2rem; height:10rem; background:#fff; border:2px solid #93c5fd; border-radius:9999px; margin:0 auto; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;">
+                <div id="sim-col-c" style="width:1rem; background:linear-gradient(to top, #2563eb, #60a5fa); border-radius:9999px; transition:height 0.15s ease;"></div>
+              </div>
+              <div style="font-size:0.65rem; color:#64748b; margin-top:0.75rem;">Titik: 0° – 100°<br><strong>Rasio: 5</strong></div>
+            </div>
+
+            <!-- R -->
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:1rem; padding:1rem 0.5rem;">
+              <div style="font-weight:900; font-size:0.8rem; color:#065f46;">Reamur</div>
+              <div id="sim-val-r" style="font-family:monospace; font-weight:900; font-size:1.1rem; color:#047857; margin:0.35rem 0 0.75rem;">29.6°R</div>
+              <div style="width:2rem; height:10rem; background:#fff; border:2px solid #86efac; border-radius:9999px; margin:0 auto; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;">
+                <div id="sim-col-r" style="width:1rem; background:linear-gradient(to top, #16a34a, #4ade80); border-radius:9999px; transition:height 0.15s ease;"></div>
+              </div>
+              <div style="font-size:0.65rem; color:#64748b; margin-top:0.75rem;">Titik: 0° – 80°<br><strong>Rasio: 4</strong></div>
+            </div>
+
+            <!-- F -->
+            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:1rem; padding:1rem 0.5rem;">
+              <div style="font-weight:900; font-size:0.8rem; color:#9a3412;">Fahrenheit</div>
+              <div id="sim-val-f" style="font-family:monospace; font-weight:900; font-size:1.1rem; color:#c2410c; margin:0.35rem 0 0.75rem;">98.6°F</div>
+              <div style="width:2rem; height:10rem; background:#fff; border:2px solid #fdba74; border-radius:9999px; margin:0 auto; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;">
+                <div id="sim-col-f" style="width:1rem; background:linear-gradient(to top, #ea580c, #fb923c); border-radius:9999px; transition:height 0.15s ease;"></div>
+              </div>
+              <div style="font-size:0.65rem; color:#64748b; margin-top:0.75rem;">Titik: 32° – 212°<br><strong>Rasio: 9</strong></div>
+            </div>
+
+            <!-- K -->
+            <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:1rem; padding:1rem 0.5rem;">
+              <div style="font-weight:900; font-size:0.8rem; color:#6b21a8;">Kelvin (SI)</div>
+              <div id="sim-val-k" style="font-family:monospace; font-weight:900; font-size:1.1rem; color:#7e22ce; margin:0.35rem 0 0.75rem;">310.2 K</div>
+              <div style="width:2rem; height:10rem; background:#fff; border:2px solid #d8b4fe; border-radius:9999px; margin:0 auto; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;">
+                <div id="sim-col-k" style="width:1rem; background:linear-gradient(to top, #9333ea, #c084fc); border-radius:9999px; transition:height 0.15s ease;"></div>
+              </div>
+              <div style="font-size:0.65rem; color:#64748b; margin-top:0.75rem;">Titik: 273 – 373<br><strong>Rasio: 5</strong></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Material Sections -->
+        <div style="background:var(--white); border:1px solid var(--slate-200); border-radius:1.25rem; padding:2rem; margin-bottom:2rem; line-height:1.7;">
+          
+          <h3 style="color:var(--navy); font-size:1.35rem; font-weight:900; margin-bottom:0.75rem; border-bottom:2px solid var(--slate-100); padding-bottom:0.5rem;">
+            A. Pengertian Suhu & Alat Ukur Baku
+          </h3>
+          <p style="color:var(--slate-700); margin-bottom:1rem;">
+            <strong>Suhu</strong> adalah ukuran derajat panas atau dinginnya suatu benda. Secara molekuler, suhu mencerminkan rata-rata energi kinetik partikel-partikel penyusun zat.
+          </p>
+          <div style="background:#fefce8; border-left:4px solid #eab308; padding:0.75rem 1rem; border-radius:0.5rem; margin-bottom:1.5rem; font-size:0.85rem;">
+            <strong>Mengapa Tangan Bukan Alat Ukur Suhu yang Baku?</strong><br>
+            Kulit manusia hanya dapat merasakan sensasi hangat atau dingin secara <em>subjektif</em> dan <em>kualitatif</em> tanpa memberikan angka pasti, serta rentang tahan suhunya sangat terbatas dan berbahaya jika menyentuh zat bersuhu ekstrem.
+          </div>
+
+          <h3 style="color:var(--navy); font-size:1.35rem; font-weight:900; margin-bottom:0.75rem; border-bottom:2px solid var(--slate-100); padding-bottom:0.5rem;">
+            B. Termometer & Kesetimbangan Suhu
+          </h3>
+          <p style="color:var(--slate-700); margin-bottom:1rem;">
+            <strong>Termometer</strong> adalah instrumen baku untuk mengukur suhu secara kuantitatif. Termometer bekerja dengan memanfaatkan sifat termometrik zat (seperti pemuaian zat cair raksa atau alkohol berwarna).
+          </p>
+          <p style="color:var(--slate-700); margin-bottom:1rem;">
+            <strong>Prinsip Kesetimbangan Suhu (Thermal Equilibrium):</strong> Ketika termometer disentuhkan pada benda yang diukur, terjadi pertukaran kalor hingga suhu termometer sama dengan suhu benda. Pada kondisi seimbang inilah nilai skala dibaca.
+          </p>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem; font-size:0.85rem;">
+              <strong style="color:var(--deepblue); display:block; margin-bottom:0.25rem;">Termometer Klinis / Badan</strong>
+              Rentang: <strong>35°C – 42°C</strong>. Memiliki lekukan kapiler menyempit agar cairan raksa tidak cepat turun saat termometer dikeluarkan dari tubuh pasien.
+            </div>
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem; font-size:0.85rem;">
+              <strong style="color:var(--deepblue); display:block; margin-bottom:0.25rem;">Termometer Laboratorium</strong>
+              Rentang: <strong>-10°C – 110°C</strong>. Digunakan untuk penelitian sains dan praktikum sekolah, biasanya berisi cairan raksa atau alkohol berwarna merah.
+            </div>
+            <div style="background:var(--slate-50); border:1px solid var(--slate-200); padding:1rem; border-radius:0.75rem; font-size:0.85rem;">
+              <strong style="color:var(--deepblue); display:block; margin-bottom:0.25rem;">Termometer Industri / Khusus</strong>
+              Meliputi <em>Termometer Bimetal</em> (dua logam beda muai), <em>Pirometer/Inframerah</em> (radiasi panas optik tanpa sentuh), dan <em>Termokopel</em> (sinyal tegangan listrik rentang ekstrem).
+            </div>
+          </div>
+
+          <h3 style="color:var(--navy); font-size:1.35rem; font-weight:900; margin-bottom:0.75rem; border-bottom:2px solid var(--slate-100); padding-bottom:0.5rem;">
+            C & D. Titik Tetap Skala Suhu
+          </h3>
+          <table class="leaderboard-table" style="margin-bottom:1.5rem;">
+            <thead>
+              <tr>
+                <th>Skala Suhu</th>
+                <th>Titik Tetap Bawah (Es Lebur)</th>
+                <th>Titik Tetap Atas (Air Mendidih)</th>
+                <th>Jumlah Rentang Skala</th>
+                <th>Rasio Perbandingan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Celsius (°C)</strong></td><td>0°C</td><td>100°C</td><td>100</td><td><strong>5</strong></td></tr>
+              <tr><td><strong>Reamur (°R)</strong></td><td>0°R</td><td>80°R</td><td>80</td><td><strong>4</strong></td></tr>
+              <tr><td><strong>Fahrenheit (°F)</strong></td><td>32°F</td><td>212°F</td><td>180</td><td><strong>9</strong></td></tr>
+              <tr><td><strong>Kelvin (K) - Satuan SI</strong></td><td>273 K</td><td>373 K</td><td>100</td><td><strong>5</strong></td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="color:var(--navy); font-size:1.35rem; font-weight:900; margin-bottom:0.75rem; border-bottom:2px solid var(--slate-100); padding-bottom:0.5rem;">
+            E. Rumus & Contoh Konversi Suhu
+          </h3>
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:1rem; border-radius:0.75rem; margin-bottom:1rem; font-family:monospace; font-weight:900; color:var(--deepblue); text-align:center;">
+            Perbandingan Rasio: C : R : (F - 32) : (K - 273) = 5 : 4 : 9 : 5
+          </div>
+
+          <ul style="list-style:disc; margin-left:1.5rem; color:var(--slate-700); font-size:0.9rem; line-height:1.8;">
+            <li><strong>Celsius ke Fahrenheit:</strong> <code>F = (9/5 × C) + 32</code> &nbsp;|&nbsp; Contoh: 30°C = (9/5 × 30) + 32 = 54 + 32 = <strong>86°F</strong></li>
+            <li><strong>Celsius ke Reamur:</strong> <code>R = 4/5 × C</code> &nbsp;|&nbsp; Contoh: 40°C = 4/5 × 40 = <strong>32°R</strong></li>
+            <li><strong>Celsius ke Kelvin:</strong> <code>K = C + 273</code> &nbsp;|&nbsp; Contoh: 27°C = 27 + 273 = <strong>300 K</strong></li>
+            <li><strong>Fahrenheit ke Celsius:</strong> <code>C = 5/9 × (F - 32)</code> &nbsp;|&nbsp; Contoh: 212°F = 5/9 × (212 - 32) = <strong>100°C</strong></li>
+            <li><strong>Reamur ke Celsius:</strong> <code>C = 5/4 × R</code> &nbsp;|&nbsp; Contoh: 60°R = 5/4 × 60 = <strong>75°C</strong></li>
+          </ul>
+
+          <!-- Interactive Formula Exploration Sandbox -->
+          <div style="background:var(--slate-50); border:1px solid var(--slate-200); border-radius:1rem; padding:1.25rem; margin-top:1.5rem;">
+            <div style="font-size:0.8rem; font-weight:800; color:var(--deepblue); text-transform:uppercase; margin-bottom:0.5rem;">
+              Kalkulator Eksplorasi Konversi Suhu Otomatis
+            </div>
+            <p style="font-size:0.8rem; color:var(--slate-600); margin-bottom:1rem;">
+              Ketikkan nilai suhu dan pilih satuannya, sistem akan menghitung secara instan nilai suhu di 4 skala termometer:
+            </p>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem;">
+              <input type="number" id="calc-sim-val" class="form-input" value="30" style="width:120px;" placeholder="Nilai" />
+              <select id="calc-sim-unit" class="form-input" style="width:160px; cursor:pointer;">
+                <option value="C">Celsius (°C)</option>
+                <option value="R">Reamur (°R)</option>
+                <option value="F">Fahrenheit (°F)</option>
+                <option value="K">Kelvin (K)</option>
+              </select>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; text-align:center;">
+              <div style="background:#fff; border:1px solid #bfdbfe; border-radius:0.5rem; padding:0.6rem;">
+                <div style="font-size:0.7rem; font-weight:700; color:#1e40af;">Celsius</div>
+                <div id="sim-out-c" style="font-family:monospace; font-weight:800; font-size:1.05rem; color:#1d4ed8;">30°C</div>
+              </div>
+              <div style="background:#fff; border:1px solid #a7f3d0; border-radius:0.5rem; padding:0.6rem;">
+                <div style="font-size:0.7rem; font-weight:700; color:#065f46;">Reamur</div>
+                <div id="sim-out-r" style="font-family:monospace; font-weight:800; font-size:1.05rem; color:#047857;">24°R</div>
+              </div>
+              <div style="background:#fff; border:1px solid #fed7aa; border-radius:0.5rem; padding:0.6rem;">
+                <div style="font-size:0.7rem; font-weight:700; color:#9a3412;">Fahrenheit</div>
+                <div id="sim-out-f" style="font-family:monospace; font-weight:800; font-size:1.05rem; color:#c2410c;">86°F</div>
+              </div>
+              <div style="background:#fff; border:1px solid #e9d5ff; border-radius:0.5rem; padding:0.6rem;">
+                <div style="font-size:0.7rem; font-weight:700; color:#6b21a8;">Kelvin</div>
+                <div id="sim-out-k" style="font-family:monospace; font-weight:800; font-size:1.05rem; color:#7e22ce;">303.15 K</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================================================================
+       MODAL: LEADERBOARD KELOMPOK
+       ====================================================================== -->
+  <div id="modal-leaderboard" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.25rem;">🏆</span>
+          <div>
+            <div style="font-size:0.65rem; color:var(--electric); font-weight:800; text-transform:uppercase;">Turnamen 8 Kelompok</div>
+            <h3 style="font-size:1.15rem; font-weight:900;">Leaderboard Kelompok</h3>
+          </div>
+        </div>
+        <button type="button" class="btn-nav modal-close-btn" style="padding:0.25rem 0.5rem; font-size:1.2rem;">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:var(--slate-500); margin-bottom:1rem;">
+          Peringkat resmi 8 kelompok berdasarkan: 1. Nilai akhir tertinggi, 2. Akurasi tertinggi, 3. Waktu tercepat.
+        </p>
+
+        <div style="overflow-x:auto;">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Peringkat</th>
+                <th>Nama Kelompok</th>
+                <th>Nomor Kelompok</th>
+                <th>Nilai Akhir</th>
+                <th>Predikat</th>
+                <th>Waktu</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-tbody">
+              <!-- Rendered via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: CETAK PIAGAM JUARA KELOMPOK (Printable)
+       ====================================================================== -->
+  <div id="modal-certificate" class="modal-overlay">
+    <div class="modal-content" style="max-width:820px;">
+      
+      <div class="modal-header no-print">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.25rem;">📜</span>
+          <h3 style="font-size:1.1rem; font-weight:900;">Piagam Penghargaan Resmi Kelompok</h3>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" id="btn-print-cert" class="btn-nav btn-nav-primary">
+            <span>🖨️ Cetak / Simpan PDF</span>
+          </button>
+          <button type="button" class="btn-nav modal-close-btn">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding:1.5rem;">
+        
+        <!-- Certificate Printable Area -->
+        <div id="printable-certificate" style="background:#fff; border:8px double #d97706; border-radius:1rem; padding:2.5rem 2rem; text-align:center; position:relative; box-shadow:var(--shadow-lg);">
+          
+          <div style="font-size:0.75rem; font-weight:900; letter-spacing:0.1em; color:#d97706; text-transform:uppercase; margin-bottom:0.25rem;">
+            ★ PIAGAM PENGHARGAAN KOMPETISI SAINS KELOMPOK ★
+          </div>
+
+          <h2 style="font-size:2.4rem; font-family:serif; font-weight:900; color:var(--navy); letter-spacing:-0.01em;">
+            THERMO CHAMPIONS
+          </h2>
+          <div style="font-size:0.75rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">
+            Media Pembelajaran Interaktif IPA Kelas VII SMP • Materi Pokok: Suhu
+          </div>
+
+          <div style="width:5rem; height:3px; background:linear-gradient(90deg, #d97706, #f97316); margin:0 auto 1.25rem; border-radius:9999px;"></div>
+
+          <p style="font-size:0.85rem; color:#475569; font-style:italic; margin-bottom:0.5rem;">Dengan bangga dianugerahkan kepada:</p>
+
+          <h3 id="cert-team-nama" style="font-size:2rem; font-family:serif; font-weight:900; color:var(--navy); text-decoration:underline; text-decoration-color:#f59e0b; margin-bottom:0.25rem;">
+            The Thermo Squad
+          </h3>
+          <div id="cert-team-nomor" style="font-size:0.95rem; font-weight:800; color:var(--deepblue); margin-bottom:1rem;">
+            Kelompok 1
+          </div>
+
+          <p style="font-size:0.85rem; color:#334155; max-width:540px; margin:0 auto 1.25rem; line-height:1.6;">
+            Telah berhasil menyelesaikan seluruh rangkaian 3 mode tantangan ilmiah: 
+            <strong>StarChamp Challenge</strong>, <strong>Memory Madness</strong>, dan <strong>Number Chains</strong> secara kolaboratif.
+          </p>
+
+          <!-- Members Grid on Certificate -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:0.75rem; padding:1rem; max-width:600px; margin:0 auto 1.5rem;">
+            <div style="font-size:0.7rem; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:0.5rem;">Seluruh Anggota Kelompok yang Berjasa:</div>
+            <div id="cert-members-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.4rem;">
+              <!-- Member names -->
+            </div>
+          </div>
+
+          <!-- Score & Predicate -->
+          <div style="display:inline-flex; align-items:center; gap:1.5rem; background:#fffbeb; border:2px solid #fde68a; padding:0.75rem 1.75rem; border-radius:0.75rem; margin-bottom:1.5rem;">
+            <div>
+              <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">Nilai Akhir Kelompok</div>
+              <div style="font-size:2rem; font-weight:900; font-family:monospace; color:var(--navy);"><span id="cert-final-score">0</span> <span style="font-size:0.9rem; font-weight:600; color:#64748b;">/ 100</span></div>
+            </div>
+            <div style="width:1px; height:2.5rem; background:#fde68a;"></div>
+            <div>
+              <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">Predikat Pencapaian</div>
+              <div id="cert-predicate-text" style="font-size:1.15rem; font-weight:900; color:#b45309;">THERMO CHAMPION</div>
+            </div>
+          </div>
+
+          <!-- Footer Seals & Signatures -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; border-top:1px solid #e2e8f0; padding-top:1rem; margin-top:0.75rem; text-align:left; font-size:0.75rem;">
+            <div>
+              <div style="color:var(--success); font-weight:800;">✓ Terverifikasi Resmi</div>
+              <div style="color:#94a3b8; font-family:monospace;">ID: TC-GRP-8K</div>
+              <div style="color:#64748b;">Tanggal: <span id="cert-date"></span></div>
+            </div>
+
+            <!-- Official Seal Stamp -->
+            <div style="width:4.5rem; height:4.5rem; border-radius:9999px; border:3px solid #d97706; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#d97706; font-size:0.6rem; font-weight:900; transform:rotate(-6deg);">
+              <span style="font-size:1.2rem;">🔥</span>
+              <span>SEAL SAINS</span>
+            </div>
+
+            <div style="text-align:right;">
+              <div style="font-style:italic; color:#64748b;">Guru Mata Pelajaran IPA</div>
+              <div style="width:7rem; height:1px; background:#94a3b8; margin:1.5rem 0 0.25rem auto;"></div>
+              <div style="font-weight:900; color:var(--navy);">Pendidik Sains SMP</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: PETUNJUK PERMAINAN
+       ====================================================================== -->
+  <div id="modal-help" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.25rem;">❓</span>
+          <h3 style="font-size:1.15rem; font-weight:900;">Petunjuk Permainan Kelompok</h3>
+        </div>
+        <button type="button" class="btn-nav modal-close-btn">✕</button>
+      </div>
+
+      <div class="modal-body" style="font-size:0.85rem; line-height:1.7; color:var(--slate-700);">
+        <p style="margin-bottom:0.75rem;">
+          <strong>THERMO CHAMPIONS</strong> adalah media kompetisi sains berkelompok untuk mata pelajaran IPA Kelas VII SMP materi <strong>Suhu</strong>.
+        </p>
+
+        <h4 style="font-weight:900; color:var(--navy); margin:1rem 0 0.35rem;">Ketentuan Bermain Bersama:</h4>
+        <ul style="list-style:disc; margin-left:1.5rem; margin-bottom:1rem;">
+          <li>Permainan dimainkan oleh <strong>8 kelompok</strong>. Seluruh anggota berdiskusi bersama dalam satu perangkat.</li>
+          <li>Setiap kelompok hanya memiliki satu skor dan satu nilai akhir kumulatif.</li>
+          <li>Satu kelompok menyelesaikan tiga mode permainan: <strong>StarChamp (35 Poin)</strong>, <strong>Memory Madness (30 Poin)</strong>, dan <strong>Number Chains (35 Poin)</strong>. Total maksimal <strong>100 Poin</strong>.</li>
+          <li>Hasil akhir seluruh kelompok akan dirangkum di <strong>Leaderboard Kelompok</strong> berdasarkan nilai akhir tertinggi, akurasi, dan waktu pengerjaan.</li>
+        </ul>
+
+        <h4 style="font-weight:900; color:var(--navy); margin:1rem 0 0.35rem;">Tabel Predikat Capaian:</h4>
+        <div style="overflow-x:auto;">
+          <table class="leaderboard-table" style="font-size:0.75rem;">
+            <thead>
+              <tr><th>Rentang Nilai</th><th>Predikat</th><th>Kategori</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>86 – 100</td><td>🏆 THERMO CHAMPION</td><td>Penguasaan konsep dan hitungan sempurna</td></tr>
+              <tr><td>76 – 85</td><td>🎖️ THERMO EXPERT</td><td>Pemahaman konsep dan konversi sangat baik</td></tr>
+              <tr><td>66 – 75</td><td>⚡ SCIENCE CHALLENGER</td><td>Penalaran sains dan daya ingat memuaskan</td></tr>
+              <tr><td>56 – 65</td><td>🔍 THERMO EXPLORER</td><td>Cukup baik, perlu ketelitian hitung</td></tr>
+              <tr><td>0 – 55</td><td>📘 TEMPERATURE ROOKIE</td><td>Perlu mempelajari kembali modul materi suhu</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pure Vanilla JavaScript Application -->
+  <script src="app.js"></script>
+
+</body>
 </html>

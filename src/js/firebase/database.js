@@ -209,6 +209,7 @@ class RealtimeDatabaseEngine {
       code: code,
       title: title.trim(),
       status: 'waiting', // waiting | started | paused | ended
+      currentPhase: 'LOBBY',
       createdAt: this.getSyncedServerNow(),
       startedAt: null,
       endedAt: null,
@@ -216,9 +217,10 @@ class RealtimeDatabaseEngine {
       teams: {}
     };
 
-    // Pre-initialize empty teams 1 to 8
+    // Pre-initialize empty teams 1 to 8 (supports both group1..8 and team_1..8)
     for (let i = 1; i <= 8; i++) {
       sessionData.teams[`group${i}`] = null;
+      sessionData.teams[`team_${i}`] = null;
     }
 
     // 1. Write to Firebase RTDB
@@ -321,24 +323,30 @@ class RealtimeDatabaseEngine {
         deviceToken: deviceToken,
         claimed: true,
         ready: true,
-        status: session.status === 'started' ? 'in_game' : 'ready',
+        status: (session.status === 'started' || session.currentPhase === 'started') ? 'in_game' : 'ready',
         isOnline: true,
         joinedAt: this.getSyncedServerNow(),
         lastActive: this.getSyncedServerNow(),
-        scores: { quiz: 0, memory: 0, calc: 0, total: 0 },
+        scores: { quiz: 0, memory: 0, calc: 0, game1: 0, game2: 0, game3: 0, total: 0 },
         completedModes: { quiz: false, memory: false, calc: false },
+        progress: { game1Submitted: false, game2Index: 0, game3Index: 0 },
         totalDurationSeconds: 0,
         predicate: 'TEMPERATURE ROOKIE'
       };
+      // Keep team_${num} in sync
+      session.teams[`team_${num}`] = session.teams[groupKey];
     }
 
     const claimedGroup = session.teams[groupKey];
+    this.saveTeamSession(code, num, claimedGroup.groupName);
 
     // Push to Firebase RTDB
     if (this.db) {
       try {
         const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
         await set(teamRef, claimedGroup);
+        const teamAltRef = ref(this.db, `sessions/${code}/teams/team_${num}`);
+        await set(teamAltRef, claimedGroup);
       } catch (err) {
         console.warn('Firebase team set error:', err.message);
       }
@@ -614,10 +622,19 @@ class RealtimeDatabaseEngine {
       submittedAt: this.getSyncedServerNow()
     };
 
-    if (!team.scores) team.scores = { quiz: 0, memory: 0, calc: 0, total: 0 };
-    if (mode === 'quiz') team.scores.quiz = Math.min(35, Math.round(((team.scores.quiz || 0) + awardedScore) * 10) / 10);
-    if (mode === 'memory') team.scores.memory = Math.min(30, Math.round(((team.scores.memory || 0) + awardedScore) * 10) / 10);
-    if (mode === 'calc') team.scores.calc = Math.min(35, Math.round(((team.scores.calc || 0) + awardedScore) * 10) / 10);
+    if (!team.scores) team.scores = { quiz: 0, memory: 0, calc: 0, game1: 0, game2: 0, game3: 0, total: 0 };
+    if (mode === 'quiz' || mode === 'game1') {
+      team.scores.quiz = Math.min(35, Math.round(((team.scores.quiz || 0) + awardedScore) * 10) / 10);
+      team.scores.game1 = team.scores.quiz;
+    }
+    if (mode === 'memory' || mode === 'game2') {
+      team.scores.memory = Math.min(30, Math.round(((team.scores.memory || 0) + awardedScore) * 10) / 10);
+      team.scores.game2 = team.scores.memory;
+    }
+    if (mode === 'calc' || mode === 'game3') {
+      team.scores.calc = Math.min(35, Math.round(((team.scores.calc || 0) + awardedScore) * 10) / 10);
+      team.scores.game3 = team.scores.calc;
+    }
 
     team.scores.total = Math.min(100, Math.round(((team.scores.quiz || 0) + (team.scores.memory || 0) + (team.scores.calc || 0)) * 10) / 10);
     team.predicate = getPredicate(team.scores.total).title;
@@ -627,10 +644,15 @@ class RealtimeDatabaseEngine {
       team.totalDurationSeconds = (team.totalDurationSeconds || 0) + Number(timeSpentSeconds);
     }
 
+    // Keep team_${groupNumber} in sync
+    session.teams[`team_${groupNumber}`] = team;
+
     if (this.db) {
       try {
         const teamRef = ref(this.db, `sessions/${code}/teams/${groupKey}`);
         await set(teamRef, team);
+        const teamAltRef = ref(this.db, `sessions/${code}/teams/team_${groupNumber}`);
+        await set(teamAltRef, team);
         const subRef = ref(this.db, `sessions/${code}/submissions/${subKey}`);
         await set(subRef, session.submissions[subKey]);
       } catch (e) {}
@@ -683,6 +705,24 @@ class RealtimeDatabaseEngine {
       }
       this.notifySessionUpdate(code, session);
     }
+  }
+
+  saveTeamSession(sessionCode, teamNumber, teamName) {
+    const cred = { sessionCode, teamNumber, teamName, savedAt: Date.now() };
+    try { localStorage.setItem('tc_team_session', JSON.stringify(cred)); } catch (e) {}
+  }
+
+  getStoredTeamSession() {
+    try {
+      const raw = localStorage.getItem('tc_team_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  clearStoredTeamSession() {
+    try { localStorage.removeItem('tc_team_session'); } catch (e) {}
   }
 }
 

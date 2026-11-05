@@ -1,122 +1,154 @@
 # THERMO CHAMPIONS 🏆
-### Game Edukasi Berbasis Web Multiplayer Real-Time — Clash of Champions Suhu (IPA Kelas VII SMP)
+### Media Pembelajaran IPA Kelas VII SMP — Materi Pokok Suhu
 > **Tagline:** *"Master the Temperature. Become the Champion."*
 
----
-
-## 📌 Deskripsi Sistem Multiplayer
-**THERMO CHAMPIONS** adalah media pembelajaran interaktif berbasis web untuk mata pelajaran Ilmu Pengetahuan Alam (IPA) Kelas VII SMP pada materi pokok **SUHU** (tidak mencakup kalor atau pemuaian).
-
-Sistem kini mendukung **Turnamen Multiplayer Online Real-Time** yang dapat dimainkan oleh **8 kelompok secara bersamaan menggunakan 8 perangkat berbeda** (laptop/tablet/smartphone siswa) dengan 1 dashboard kontrol Guru (**Game Master Admin**):
-- **Teknologi Frontend:** Murni **HTML5, CSS3, dan Vanilla JavaScript** (Zero dependency, tanpa framework React/Vue/Laravel).
-- **Database & Sinkronisasi:** **Supabase PostgreSQL** & **Supabase Realtime** (`postgres_changes` websocket channel).
-- **Hosting Frontend:** Siap di-*deploy* langsung ke **Vercel** (`vercel.json` sudah tersedia).
-- **Keamanan:** Menerapkan **Row Level Security (RLS)** dan hanya menggunakan **Publishable API Key** (`sb_publishable_...`) di frontend (Service Role Key dirahasiakan dan tidak pernah disimpan di sisi klien).
-- **Anti-Curang & Anti-Duplikasi:** Constraint unik database mencegah pengiriman jawaban/skor ganda dan mencegah pembajakan nomor kelompok oleh perangkat lain.
-- **Sinkronisasi Timer:** Waktu permainan disinkronkan menggunakan waktu server (`started_at`).
-- **Pemulihan Otomatis:** Jika perangkat di-*refresh* atau koneksi terputus sesaat, progres dan jawaban langsung dipulihkan dari database.
+Aplikasi web edukasi interaktif berbasis kompetisi antarkelompok kelas VII SMP dengan arsitektur **Multiplayer Realtime Multi-Device**. 8 kelompok siswa bertanding secara serentak dari perangkat HP/smartphone masing-masing di bawah kendali 1 Game Master / Guru melalui Dashboard Admin.
 
 ---
 
-## 👥 Dua Peran Pengguna
+## 🚀 1. STACK TEKNOLOGI
 
-### 1. Guru / Game Master (`admin.html`)
-- Membuka halaman **Admin** untuk membuat sesi turnamen baru (menghasilkan kode sesi 6 karakter unik, misal: `TC-8899` atau `SUHU01`).
-- Memantau **8 slot kelompok** di ruang tunggu (*Lobby*) secara *real-time*: melihat perangkat mana saja yang sudah bergabung, nama tim, dan daftar anggotanya.
-- Menekan tombol besar **"MULAI BERSAMA SELURUH KELOMPOK"**:
-  - Mengirim sinyal *realtime broadcast* ke seluruh perangkat siswa.
-  - Memulai permainan di ke-8 perangkat siswa secara serentak.
-- Melihat **Live Leaderboard** yang otomatis naik-turun peringkatnya setiap kali kelompok berhasil menjawab soal.
-- Kontrol pertandingan: Jeda (*Pause*), Lanjutkan (*Resume*), Selesaikan (*Complete*), dan *Reset*.
+- **Frontend:** HTML5, CSS3, dan Vanilla JavaScript (ES Modules).
+- **Backend & Realtime:** Firebase Realtime Database & Firebase Authentication (Anonymous).
+- **Validasi & Penilaian:** Firebase Cloud Functions (`functions/index.js`) & Atomic RTDB Security Rules.
+- **Hosting Frontend:** Vercel (Pure static deployment via `vercel.json`).
+- **Penyimpanan Lokal:** LocalStorage untuk pemulihan sesi otomatis (*session rehydration*).
+- **Audio:** Web Audio API (Synthesizer murni tanpa file MP3 eksternal).
+- **Efek:** HTML5 Canvas Confetti.
 
-### 2. Kelompok Siswa (`index.html`)
-- Menggunakan perangkat masing-masing (1 perangkat per kelompok).
-- Memasukkan **Kode Sesi** dari Guru dan memilih salah satu dari **8 Kelompok** (slot yang sudah diambil perangkat lain akan ditandai dan dicegah untuk diambil ganda).
-- Mengetik **Nama Kelompok** dan daftar **Anggota Tim (+ Tambah Anggota)**.
-- Masuk ke **Ruang Tunggu (Lobby)** dengan animasi radar: menunggu Guru menekan *"Mulai Bersama"*.
-- Begitu Guru menekan *"Mulai Bersama"*, layar kelompok otomatis berpindah serentak ke arena kompetisi!
-- Mengerjakan 3 mode tantangan:
-  1. **StarChamp Challenge** (*10 Soal MCQ*, 35 Poin, 30s/soal)
-  2. **Memory Madness** (*Fase Memorize 30s + 10 Soal Recall 25s*, 30 Poin)
-  3. **Number Chains** (*5 Tahap Konversi Suhu Rantai*, 35 Poin)
-- Total Skor Maksimal: **100 Poin**.
+> **Zero Frameworks:** Tanpa React, Next.js, Vue, Angular, Supabase, MySQL/Postgres, atau server Socket.IO terpisah.
 
 ---
 
-## ⚙️ Panduan Setup Supabase (Database Online)
+## 📂 2. STRUKTUR PROYEK
 
-### Langkah 1: Jalankan Skrip SQL di Supabase
-1. Buka [Supabase Dashboard](https://supabase.com/dashboard).
-2. Buat proyek baru atau buka proyek yang sudah ada.
-3. Buka menu **SQL Editor** pada bilah sisi kiri.
-4. Salin seluruh isi berkas [schema.sql](file:///d:/suhu%202/schema.sql) dan tempelkan ke SQL Editor, lalu klik **Run**.
-5. Skrip akan membuat:
-   - Tabel `public.game_sessions`
-   - Tabel `public.session_groups` (dengan constraint unik per nomor kelompok)
-   - Tabel `public.group_submissions` (dengan constraint anti-duplikasi jawaban)
-   - Realtime publication `supabase_realtime`
-   - Kebijakan Row Level Security (RLS)
-   - Fungsi RPC `get_server_time()` untuk sinkronisasi waktu server
-   - Fungsi RPC `submit_group_answer(...)` untuk validasi jawaban di sisi server & anti-cheat
-   - Fungsi RPC `get_session_leaderboard(...)` untuk kalkulasi peringkat tie-break otomatis (skor tertinggi -> durasi tercepat -> peringkat sama jika identik)
-
-### Langkah 2: Konfigurasi Supabase URL
-Publishable key sudah terpasang:
-`sb_publishable__xFEKpJLEyceeRzqdcceXw_o_wUh_zz`
-
-Tinggal masukkan **Project URL** Anda (misalnya `https://abcdefghijklm.supabase.co`):
-- **Opsi A (Paling Mudah):** Buka halaman `admin.html`, ketikkan URL Supabase Anda pada kolom atas, lalu klik **"Simpan & Uji"**. Pengaturan ini akan tersimpan otomatis.
-- **Opsi B:** Buka berkas [config.js](file:///d:/suhu%202/config.js) dan isi variabel `DEFAULT_SUPABASE_URL`:
-  ```javascript
-  DEFAULT_SUPABASE_URL: 'https://abcdefghijklm.supabase.co',
-  ```
-
----
-
-## 🧪 Cara Menguji Menggunakan 8 Perangkat (atau 8 Tab Browser)
-
-Anda dapat menguji alur multiplayer ini secara langsung di 1 komputer dengan membuka beberapa jendela peramban:
-
-1. **Buka Game Master Admin:**
-   - Buka `admin.html` di satu tab.
-   - Buat sesi turnamen baru (misal kode: `SUHU01`).
-2. **Buka 8 Tab Siswa (atau 8 Perangkat di Jaringan yang Sama):**
-   - Buka `index.html` pada 8 jendela/tab berbeda (bisa menggunakan mode *Incognito* atau perangkat HP/laptop berbeda).
-   - Pada Tab 1: Masukkan kode `SUHU01`, pilih **Kelompok 1**, isi nama tim & anggota, klik konfirmasi. Tab 1 masuk ke Ruang Tunggu.
-   - Pada Tab 2 s/d 8: Masukkan kode `SUHU01`, pilih **Kelompok 2 s/d 8**, isi data tim masing-masing.
-   - Perhatikan pada tab Admin: Ke-8 kartu kelompok otomatis berubah status menjadi **"SIAP / TERHUBUNG"** secara *real-time*!
-3. **Mulai Serentak:**
-   - Pada tab Admin, klik tombol **"MULAI BERSAMA SELURUH KELOMPOK"**.
-   - Seketika ke-8 tab siswa akan berpindah ke *Dashboard Permainan* secara bersamaan!
-4. **Coba Jawab Soal:**
-   - Saat salah satu kelompok menjawab soal, perhatikan pada tab Admin dan *Leaderboard*: Skor kelompok tersebut langsung terbarui seketika (*live update*).
-
----
-
-## 🚀 Panduan Publikasi ke Vercel
-
-Proyek ini telah dilengkapi [vercel.json](file:///d:/suhu%202/vercel.json) sehingga dapat langsung di-*deploy* ke Vercel dalam 1 menit:
-
-### Cara 1: Menggunakan Vercel CLI
-```powershell
-# Instal vercel cli jika belum ada
-npm i -g vercel
-
-# Di dalam direktori d:\suhu 2, jalankan:
-vercel --prod
+```
+d:\suhu 2\
+├── index.html                   # Halaman Klien Siswa (Mobile-First HP/Tablet/Laptop)
+├── admin.html                   # Dashboard Guru / Game Master
+├── style.css                    # CSS Klien Siswa (Responsive Flexbox & CSS Grid)
+├── admin.css                    # CSS Dashboard Guru
+├── vercel.json                  # Konfigurasi Vercel Deployment & Security Headers
+├── database.rules.json          # Aturan Keamanan Firebase Realtime Database
+├── firebase.json                # Konfigurasi Proyek Firebase (RTDB, Functions, Hosting)
+├── .env.example                 # Contoh variabel konfigurasi Firebase
+├── README.md                    # Dokumentasi lengkap proyek
+├── src/
+│   ├── data/
+│   │   └── questions.js         # Bank soal 3 mode, opsi jawaban, & kriteria predikat
+│   └── js/
+│       ├── app.js               # Controller utama klien siswa (ES Modules)
+│       ├── admin.js             # Controller utama admin dashboard (ES Modules)
+│       ├── firebase/
+│       │   ├── config.js        # Inisialisasi Firebase Web Modular SDK v10/v11
+│       │   ├── auth.js          # Otentikasi anonim untuk perangkat siswa & admin
+│       │   ├── database.js      # Layanan RTDB: claim slot 8 kelompok, timer sync, leaderboard
+│       │   └── functions.js     # Pemanggil Cloud Functions dengan fallback client RTDB
+│       ├── game/
+│       │   ├── state.js         # State management & pemulihan sesi (rehydration)
+│       │   ├── star-champ.js    # Mode 1: StarChamp Challenge (10 PG, 35 Poin)
+│       │   ├── memory-madness.js# Mode 2: Memory Madness (Hafal 30s + Recall 10 soal, 30 Poin)
+│       │   └── number-chains.js # Mode 3: Number Chains (5 Tahap Konversi Berantai, 35 Poin)
+│       └── utils/
+│           ├── timer.js         # Sinkronisasi timer server /.info/serverTimeOffset
+│           ├── sounds.js        # Sintesis efek suara Web Audio API
+│           └── ui.js            # Notifikasi Toast & Canvas Confetti
+└── functions/
+    ├── package.json             # Dependensi Node.js Cloud Functions
+    └── index.js                 # Backend Functions: validasi kunci jawaban & anti-cheat scoring
 ```
 
-### Cara 2: Hubungkan Repositori Git ke Vercel Dashboard
-1. Unggah kode ke GitHub/GitLab.
-2. Masuk ke [Vercel Dashboard](https://vercel.com/dashboard) -> klik **Add New Project**.
-3. Pilih repositori **thermo-champions**.
-4. Biarkan konfigurasi Framework Preset sebagai **Other**.
-5. Klik **Deploy**! Vercel akan memberikan link web publik yang dapat langsung diakses oleh guru dan siswa dari ponsel atau laptop manapun.
+---
+
+## ⚡ 3. TIGA ARENA MODE PERMAINAN (TOTAL 100 POIN)
+
+| Mode | Nama Arena | Mekanisme & Durasi | Bobot Skor |
+| :--- | :--- | :--- | :--- |
+| **Mode 1** | **StarChamp Challenge** | 10 Soal Pilihan Ganda (Konsep suhu, fungsi termometer, titik lebur/didih, kesetimbangan termal). Timer 30 detik/soal. | **35 Poin** (3,5 poin/soal) |
+| **Mode 2** | **Memory Madness** | **Fase 1 (Memorize):** 30 detik menghafal 10 kartu titik tetap termometer (C, R, F, K, alat, kesetimbangan).<br>**Fase 2 (Recall):** 10 tantangan uji ingatan cepat (timer 25 detik/soal). | **30 Poin** (3 poin/soal) |
+| **Mode 3** | **Number Chains** | 5 Tahap konversi suhu bertingkat:<br>• Tahap 1: C ke F (Easy)<br>• Tahap 2: C ke R (Easy)<br>• Tahap 3: C ke K (Medium)<br>• Tahap 4: F ke C (Medium)<br>• Tahap 5: Rantai Bertingkat R ke C lalu ke F (Hard) | **35 Poin** (7 poin/tahap) |
+| **TOTAL** | **Akademik Suhu IPA** | **3 Arena Tantangan Kelompok** | **100 Poin Maksimal** |
+
+### 🏆 Skala Predikat Pencapaian Resmi:
+- **86 – 100 Poin:** 🏆 `THERMO CHAMPION` (Penguasaan materi tingkat master)
+- **76 – 85 Poin:** 🥇 `THERMO EXPERT` (Pemahaman konsep dan konversi sangat matang)
+- **66 – 75 Poin:** 🥈 `SCIENCE CHALLENGER` (Penalaran sains dan memori memuaskan)
+- **56 – 65 Poin:** 🥉 `THERMO EXPLORER` (Cukup baik, perlu ketelitian hitung)
+- **0 – 55 Poin:** 🌱 `TEMPERATURE ROOKIE` (Perlu mengulang modul materi suhu)
 
 ---
 
-## 🔒 Keamanan & Integritas Data
-- **Row Level Security (RLS):** Seluruh query dibatasi oleh RLS policy Supabase.
-- **Kunci Rahasia Terlindungi:** Kunci `service_role` **TIDAK PERNAH** disimpan di frontend. Hanya kunci publik `sb_publishable_...` yang digunakan.
-- **Anti-Cheat Jawaban Ganda:** Constraint database `UNIQUE(session_id, group_number, mode, item_id)` menolak secara tegas upaya pengiriman skor ganda dari kelompok yang sama.
-- **Anti-Tabrakan Kelompok:** Perangkat lain tidak dapat memilih nomor kelompok yang sudah diambil di sesi yang sama.
+## 🛠️ 4. PANDUAN SETUP FIREBASE
+
+### Langkah 1: Buat Proyek di Firebase Console
+1. Buka [Firebase Console](https://console.firebase.google.com/).
+2. Buat proyek baru (misal: `thermo-champions`).
+3. Tambahkan **Web App** (klik ikon `</>` Web):
+   - Masukkan App nickname: `thermo-champions-web`.
+   - Salin objek `firebaseConfig`.
+
+### Langkah 2: Aktifkan Firebase Authentication
+1. Pada menu sebelah kiri, buka **Build** → **Authentication**.
+2. Klik tab **Sign-in method**.
+3. Aktifkan penyedia **Anonymous (Anonim)**, lalu simpan.
+
+### Langkah 3: Aktifkan Firebase Realtime Database
+1. Pada menu sebelah kiri, buka **Build** → **Realtime Database**.
+2. Klik **Create Database**, pilih lokasi server (disarankan `asia-southeast1` Singapura untuk latensi terendah di Indonesia).
+3. Pilih opsi **Start in locked mode**.
+4. Buka tab **Rules**, lalu salin isi file `database.rules.json` dari proyek ini dan klik **Publish**.
+
+### Langkah 4: Masukkan Konfigurasi ke Aplikasi
+Anda dapat memasukkan URL Realtime Database langsung melalui antarmuka web:
+1. Buka `admin.html` di browser Anda.
+2. Pada bilah konfigurasi di bagian atas:
+   - Masukkan `Firebase RTDB URL` (misal: `https://thermo-champions-default-rtdb.asia-southeast1.firebasedatabase.app`).
+   - Klik **Simpan & Uji**.
+   - Lampu indikator akan berubah menjadi hijau: `Firebase Realtime Terhubung`.
+
+---
+
+## 📱 5. PANDUAN PENGGUNAAN DI KELAS
+
+### A. Alur Guru (Game Master Admin):
+1. Buka `admin.html` di laptop Guru (dapat diproyeksikan ke layar proyektor kelas).
+2. Klik **➕ Buat Sesi Baru**, isi nama sesi (misal: *Turnamen Suhu VII-A*), lalu klik **Buat Sesi**.
+3. Guru mendapatkan **Kode Sesi 6 Karakter** (misal: `TC-7929`) atau dapat mengklik tombol **🔗 Salin Link HP Siswa**.
+4. Guru memantau **Status 8 Kelompok** di ruang tunggu secara live.
+5. Saat ke-8 kelompok telah masuk dan siap di ruang tunggu, Guru menekan tombol hero besar:
+   🚀 **"MULAI BERSAMA SELURUH KELOMPOK"**
+6. Seluruh HP siswa secara serentak menghitung mundur **3... 2... 1... MULAI!** dan masuk ke arena pertandingan.
+7. Guru dapat memantau pergerakan nilai secara langsung di tabel **Papan Peringkat Real-Time** dan mengunduh rekap hasil akhir dengan tombol **📊 Unduh CSV**.
+
+### B. Alur Kelompok Siswa:
+1. Satu perwakilan kelompok membuka `index.html` di HP/smartphone mereka.
+2. Masukkan **Kode Sesi** dari Guru (atau buka link langsung dari Guru).
+3. Pilih nomor kelompok (Kelompok 1 sampai 8). Sistem atomic locking otomatis mencegah 2 kelompok mengambil nomor yang sama.
+4. Masukkan **Nama Kelompok** dan daftar **Anggota Tim beserta nomor absen**.
+5. Klik **Konfirmasi dan Mulai**. Perangkat masuk ke **Ruang Tunggu (Lobby)**.
+6. Tunggu sinyal mulai dari Guru di depan kelas.
+7. Kerjakan ketiga mode tantangan bersama-sama hingga tuntas.
+8. Lihat hasil akhir nilai kumulatif, predikat, piagam penghargaan, dan peringkat kelas!
+
+---
+
+## 🌐 6. DEPLOYMENT KE VERCEL
+
+Proyek ini telah dikonfigurasi secara lengkap untuk Vercel melalui `vercel.json`:
+1. Push repositori ke GitHub / GitLab / Bitbucket.
+2. Buka [Vercel Dashboard](https://vercel.com/) dan impor repositori.
+3. Karena proyek menggunakan Vanilla HTML/CSS/JS murni:
+   - **Framework Preset:** `Other`.
+   - **Build Command:** (kosongkan).
+   - **Output Directory:** `.` (root).
+4. Klik **Deploy**.
+5. Website siap diakses secara online oleh seluruh siswa di kelas!
+
+---
+
+## 🔒 7. KEAMANAN & ANTI-CHEAT
+
+1. **Atomic Group Slot Claim:** Menggunakan `runTransaction` pada node `/sessionGroups/{sessionId}/group{N}` untuk menjamin hanya 1 perangkat yang dapat mengklaim satu nomor kelompok.
+2. **Anti-Replay Submissions:** Setiap nomor soal memiliki kunci unik di `/submissions/{sessionId}/group{N}/{mode}_{id}` sehingga kelompok tidak dapat mengirim jawaban ganda atau memanipulasi nilai.
+3. **Timer Drift Compensation:** Waktu timer dikalibrasi secara otomatis menggunakan patokan waktu server Firebase (`/.info/serverTimeOffset`) sehingga perhitungan detik sama persis di seluruh variasi tipe HP siswa.
+4. **Offline & Refresh Resilience:** Jika HP siswa tidak sengaja ter-refresh atau sinyal terputus sesaat, state disimpan di `localStorage` dan langsung direhidrasi otomatis dari Firebase tanpa kehilangan progres yang telah dijawab.

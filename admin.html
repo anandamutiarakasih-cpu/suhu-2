@@ -12,15 +12,8 @@
 
   <link rel="stylesheet" href="admin.css" />
 
-  <!-- Supabase JS Library (Local Bundle with CDN Fallback) -->
-  <script src="supabase.min.js"></script>
-  <script>
-    if (typeof window.supabase === 'undefined') {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');
-    }
-  </script>
-  <script src="config.js"></script>
-  <script src="supabase-client.js"></script>
+  <!-- Pure Vanilla JavaScript (ES Modules) + Firebase Realtime Multi-Device Engine -->
+  <script type="module" src="src/js/admin.js"></script>
 </head>
 <body>
 
@@ -54,8 +47,8 @@
   <section class="config-bar">
     <div class="container config-row">
       <div style="display:flex; align-items:center; gap:0.75rem; flex:1; min-width:300px;">
-        <label for="cfg-supabase-url" style="font-weight:700; color:var(--slate-600); white-space:nowrap;">Supabase URL:</label>
-        <input type="text" id="cfg-supabase-url" class="form-input" style="padding:0.35rem 0.6rem; font-size:0.8rem;" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+        <label for="cfg-firebase-url" style="font-weight:700; color:var(--slate-600); white-space:nowrap;">Firebase RTDB URL:</label>
+        <input type="text" id="cfg-firebase-url" class="form-input" style="padding:0.35rem 0.6rem; font-size:0.8rem;" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app" />
         <button type="button" id="btn-save-config" class="btn-secondary" style="padding:0.35rem 0.85rem; white-space:nowrap;">Simpan & Uji</button>
       </div>
 
@@ -138,9 +131,14 @@
               <h2 class="card-title"><span>🏆</span> Papan Peringkat Real-Time Turnamen</h2>
               <div class="card-subtitle" style="margin-bottom:0;">Otomatis diperbarui langsung saat kelompok menjawab soal</div>
             </div>
-            <button type="button" id="btn-refresh-leaderboard" class="btn-secondary" style="font-size:0.75rem;">
-              🔄 Segarkan
-            </button>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <button type="button" id="btn-export-csv" class="btn-secondary" style="font-size:0.75rem; background:#ecfdf5; border-color:#86efac; color:#15803d; font-weight:700;">
+                📊 Unduh CSV
+              </button>
+              <button type="button" id="btn-refresh-leaderboard" class="btn-secondary" style="font-size:0.75rem;">
+                🔄 Segarkan
+              </button>
+            </div>
           </div>
 
           <div style="overflow-x:auto;">
@@ -245,9 +243,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Admin JS Engine -->
-  <script src="admin.js"></script>
 
 </body>
 </html>

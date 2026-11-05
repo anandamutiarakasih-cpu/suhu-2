@@ -16,15 +16,8 @@
   <!-- Pure CSS3 Stylesheet -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Supabase Client & Multiplayer Config (Local Bundle with CDN Fallback) -->
-  <script src="supabase.min.js"></script>
-  <script>
-    if (typeof window.supabase === 'undefined') {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');
-    }
-  </script>
-  <script src="config.js"></script>
-  <script src="supabase-client.js"></script>
+  <!-- Pure Vanilla JavaScript (ES Modules) + Firebase Realtime Multi-Device Engine -->
+  <script type="module" src="src/js/app.js"></script>
 </head>
 <body>
 
@@ -1196,9 +1189,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Pure Vanilla JavaScript Application -->
-  <script src="app.js"></script>
 
 </body>
 </html>

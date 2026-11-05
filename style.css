@@ -1390,3 +1390,238 @@ main {
 .group-card-btn.occupied .group-card-title {
   color: #991b1b;
 }
+
+/* ==========================================================================
+   MOBILE & SMARTPHONE OPTIMIZATION (max-width: 680px)
+   Disempurnakan khusus untuk layar HP siswa (touch-friendly & responsif)
+   ========================================================================== */
+@media (max-width: 680px) {
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Compact Container */
+  .container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* Mobile Navbar */
+  .navbar {
+    padding: 0.4rem 0 !important;
+  }
+  .navbar-container {
+    padding: 0 0.75rem !important;
+    gap: 0.35rem !important;
+  }
+  .brand-icon {
+    font-size: 1.35rem !important;
+  }
+  .brand-text h1 {
+    font-size: 1rem !important;
+    letter-spacing: -0.01em !important;
+  }
+  .brand-badge {
+    display: none !important;
+  }
+  .brand-tagline {
+    display: none !important;
+  }
+  .nav-label {
+    display: none !important; /* Tampilkan icon saja di HP agar tidak meluber */
+  }
+  .btn-nav {
+    padding: 0.45rem 0.55rem !important;
+    font-size: 1.15rem !important;
+    border-radius: 0.5rem !important;
+  }
+  .session-nav-pill {
+    padding: 0.2rem 0.45rem !important;
+    font-size: 0.65rem !important;
+  }
+
+  /* Step 0: Kode Sesi Box di HP */
+  .session-code-box {
+    padding: 1rem 0.85rem !important;
+    border-radius: 0.85rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  .session-code-row {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  .session-code-row input {
+    width: 100% !important;
+    font-size: 1.25rem !important;
+    text-align: center !important;
+    padding: 0.75rem !important;
+    letter-spacing: 0.08em !important;
+    border-radius: 0.65rem !important;
+  }
+  .session-code-row button {
+    width: 100% !important;
+    padding: 0.75rem !important;
+    font-size: 0.95rem !important;
+    border-radius: 0.65rem !important;
+    justify-content: center !important;
+  }
+
+  /* Step 1: 8 Tombol Kelompok dalam 2 Kolom Rapi di HP */
+  .groups-grid-2x4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  .group-card-btn {
+    padding: 0.75rem 0.6rem !important;
+    border-radius: 0.75rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    min-height: 80px !important;
+    gap: 0.35rem !important;
+  }
+  .group-card-btn .g-title {
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+  }
+  .group-card-btn .g-theme {
+    font-size: 0.62rem !important;
+    line-height: 1.25 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  .group-card-btn .g-badge {
+    font-size: 1.35rem !important;
+    align-self: flex-end !important;
+  }
+
+  /* Banner Kelompok Terpilih */
+  .selected-group-banner {
+    padding: 0.75rem 0.85rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    text-align: center !important;
+  }
+  .selected-group-info {
+    justify-content: center !important;
+  }
+  .btn-change-group {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Form Nama Kelompok & Anggota */
+  .member-row {
+    grid-template-columns: 1fr 85px 36px !important;
+    gap: 0.35rem !important;
+    padding: 0.45rem !important;
+  }
+  .member-row input {
+    font-size: 0.85rem !important;
+    padding: 0.55rem 0.6rem !important;
+  }
+  .btn-delete-member {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Summary Box & Konfirmasi */
+  .summary-box {
+    padding: 1rem 0.85rem !important;
+    border-radius: 0.85rem !important;
+  }
+  .btn-confirm-start {
+    font-size: 1rem !important;
+    padding: 0.95rem 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* Dashboard Siswa di HP */
+  .team-title {
+    font-size: 1.45rem !important;
+  }
+  .team-score-widget {
+    min-width: unset !important;
+    width: 100% !important;
+    text-align: center !important;
+    padding: 0.85rem !important;
+    margin-top: 0.5rem !important;
+  }
+  .team-score-widget .s-val {
+    font-size: 2.2rem !important;
+  }
+  .modes-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+    margin: 1.25rem 0 !important;
+  }
+  .mode-card {
+    padding: 1.15rem 1rem !important;
+  }
+
+  /* Arena Permainan (StarChamp, Memory, Number Chains) di HP */
+  .game-screen {
+    margin: 0.5rem auto !important;
+    padding: 0 !important;
+  }
+  .game-card {
+    padding: 1.15rem 0.85rem !important;
+    border-radius: 1rem !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06) !important;
+  }
+  .game-top-bar {
+    margin-bottom: 0.85rem !important;
+  }
+  .question-text {
+    font-size: 1.05rem !important;
+    line-height: 1.45 !important;
+  }
+  .options-stack {
+    gap: 0.6rem !important;
+    margin: 1rem 0 !important;
+  }
+  .option-btn {
+    padding: 0.85rem 0.9rem !important;
+    font-size: 0.92rem !important;
+    min-height: 52px !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* Memory Madness di HP */
+  .mem-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Lobby Waiting Room di HP */
+  .lobby-waiting-wrapper {
+    padding: 1.5rem 0.85rem !important;
+  }
+  .lobby-grid-live {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  .lobby-slot-card {
+    padding: 0.6rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Modal Dialogs di HP */
+  .modal-dialog {
+    padding: 1.15rem 0.95rem !important;
+    margin: 0.75rem !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+  .modal-table-container {
+    overflow-x: auto !important;
+  }
+}

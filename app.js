@@ -595,6 +595,17 @@ class ThermoChampionsApp {
     // Check active group & online session restoration
     await this.restoreSessionState();
 
+    // Check URL parameters for session code: e.g. ?session=TC-7929 or ?code=7929
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const codeParam = urlParams.get('session') || urlParams.get('code') || window.location.hash.replace(/^#/, '');
+      if (codeParam && (!this.onlineSession || this.onlineSession.session_code !== codeParam.trim().toUpperCase())) {
+        const codeInput = document.getElementById('input-session-code');
+        if (codeInput) codeInput.value = codeParam.trim().toUpperCase();
+        await this.checkSessionCode(codeParam.trim());
+      }
+    } catch (e) {}
+
     if (this.currentGroup) {
       this.updateNavbarGroupChip();
       if (this.currentGroup.statusPermainan === 'in_lobby' && this.onlineSession && this.onlineSession.status === 'waiting') {
@@ -631,43 +642,57 @@ class ThermoChampionsApp {
 
   async checkSessionCode(inputCode) {
     const codeInput = document.getElementById('input-session-code');
-    const code = (inputCode || (codeInput ? codeInput.value : '') || '').trim().toUpperCase();
+    const raw = (inputCode || (codeInput ? codeInput.value : '') || '').trim();
     const fb = document.getElementById('session-code-feedback');
     const tag = document.getElementById('session-status-tag');
-    if (!code) {
-      if (fb) fb.textContent = 'Masukkan kode sesi dari Guru/Admin (misal: TC-8899).';
+    const cardBox = document.getElementById('session-code-card-box');
+    if (!raw) {
+      if (fb) fb.innerHTML = '<span style="color:var(--slate-500);">Ketik kode sesi dari Guru di depan kelas untuk bermain serentak bersama 8 kelompok.</span>';
       return false;
     }
 
     try {
-      if (fb) fb.textContent = 'Memeriksa kode sesi ke database...';
-      const session = await ThermoDB.getSessionByCode(code);
+      if (fb) fb.innerHTML = '<span style="color:var(--deepblue); font-weight:700;">🔄 Menghubungkan ke sesi turnamen Guru...</span>';
+      const session = await ThermoDB.getSessionByCode(raw);
       if (!session) {
-        if (fb) fb.innerHTML = `<span style="color:var(--error);">Kode sesi "${code}" tidak ditemukan! Periksa kembali atau tanyakan Guru.</span>`;
-        if (tag) tag.textContent = 'TIDAK DITEMUKAN';
+        if (fb) fb.innerHTML = `<span style="color:var(--error); font-weight:700;">❌ Kode sesi "${raw.toUpperCase()}" tidak ditemukan! Pastikan kode sesuai yang ada di layar Guru.</span>`;
+        if (tag) {
+          tag.textContent = 'TIDAK DITEMUKAN';
+          tag.style.background = '#fee2e2';
+          tag.style.color = '#b91c1c';
+        }
         sound.wrong();
         return false;
       }
 
       this.onlineSession = session;
+      if (codeInput) codeInput.value = session.session_code;
       localStorage.setItem('thermo_online_session_code', session.session_code);
       this.updateNavbarSessionPill(session.session_code);
-      if (fb) fb.innerHTML = `<span style="color:var(--success); font-weight:700;">✓ Sesi Terhubung: "${session.title}" (${session.status.toUpperCase()})</span>`;
+
+      if (fb) {
+        fb.innerHTML = `<span style="color:#15803d; font-weight:800; font-size:0.85rem;">✅ TERHUBUNG: "${session.title}" (${session.status === 'started' ? 'PERMAINAN SEDANG BERLANGSUNG' : 'SIAP DI LOBBY'})</span>`;
+      }
       if (tag) {
         tag.textContent = `TERHUBUNG [${session.session_code}]`;
         tag.style.background = '#dcfce7';
         tag.style.color = '#15803d';
       }
+      if (cardBox) {
+        cardBox.style.background = '#f0fdf4';
+        cardBox.style.borderColor = '#86efac';
+      }
       sound.correct();
 
       await this.syncSessionGroups();
       this.render8GroupButtons();
+      this.setupRealtimeListeners(session.id);
       return true;
     } catch (err) {
       if (err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('not find the table')) {
         if (fb) fb.innerHTML = '<span style="color:var(--error); font-weight:700;">⚠️ Tabel database belum siap di Supabase. Guru perlu menjalankan file schema.sql di Supabase SQL Editor.</span>';
       } else {
-        if (fb) fb.textContent = 'Gagal memeriksa sesi: ' + (err.message || err);
+        if (fb) fb.innerHTML = `<span style="color:var(--error);">Gagal memeriksa sesi: ${err.message || err}</span>`;
       }
       return false;
     }
@@ -802,8 +827,8 @@ class ThermoChampionsApp {
       const row = document.createElement('div');
       row.className = 'member-row';
       row.innerHTML = `
-        <input type="text" class="form-input member-name-input" placeholder="Nama Lengkap Anggota ${idx + 1}" value="${m.nama || ''}" data-idx="${idx}" />
-        <input type="number" min="1" max="100" class="form-input member-absen-input" placeholder="No. Absen" value="${m.nomorAbsen || ''}" data-idx="${idx}" />
+        <input type="text" class="form-input member-name-input" placeholder="Nama Anggota ${idx + 1}" value="${m.nama || ''}" data-idx="${idx}" autocomplete="name" />
+        <input type="number" min="1" max="100" inputmode="numeric" pattern="[0-9]*" class="form-input member-absen-input" placeholder="Absen" value="${m.nomorAbsen || ''}" data-idx="${idx}" />
         <button type="button" class="btn-delete-member" data-idx="${idx}" title="Hapus Anggota" ${this.membersList.length <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>✕</button>
       `;
       list.appendChild(row);
@@ -911,9 +936,25 @@ class ThermoChampionsApp {
     // Check if session code was typed
     const sessionCodeInput = document.getElementById('input-session-code');
     const sessionCode = sessionCodeInput ? sessionCodeInput.value.trim().toUpperCase() : '';
-    if (sessionCode && !this.onlineSession) {
-      const ok = await this.checkSessionCode(sessionCode);
-      if (!ok) return;
+    if (!this.onlineSession) {
+      if (sessionCode) {
+        const ok = await this.checkSessionCode(sessionCode);
+        if (!ok) return;
+      } else {
+        const wantOnline = confirm(
+          '⚠️ PERHATIAN TURNAMEN:\n\n' +
+          'Kelompok Anda belum memasukkan KODE SESI TURNAMEN dari Guru!\n\n' +
+          '• Jika bertanding bersama turnamen kelas: Klik BATAL / CANCEL, lalu ketik Kode Sesi yang ada di layar Guru (misal: TC-7929).\n' +
+          '• Jika hanya ingin latihan mandiri di HP: Klik OK.'
+        );
+        if (!wantOnline) {
+          if (sessionCodeInput) {
+            sessionCodeInput.focus();
+            sessionCodeInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+      }
     }
 
     // Buat data kelompok sesuai struktur Section 8
@@ -1999,6 +2040,17 @@ class ThermoChampionsApp {
           e.preventDefault();
           sound.click();
           this.checkSessionCode();
+        }
+      });
+
+      let codeDebounce = null;
+      inputSessionCode.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        clearTimeout(codeDebounce);
+        if (val.length >= 4) {
+          codeDebounce = setTimeout(() => {
+            this.checkSessionCode(val);
+          }, 450);
         }
       });
     }

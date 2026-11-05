@@ -61,10 +61,27 @@ class AdminManager {
     document.getElementById('btn-copy-code').addEventListener('click', () => {
       const code = document.getElementById('session-code-display').textContent;
       if (code && code !== '------') {
-        navigator.clipboard.writeText(code);
-        alert(`Kode Sesi "${code}" berhasil disalin ke clipboard! Bagikan kepada 8 kelompok siswa.`);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code);
+        }
+        alert(`Kode Sesi "${code}" berhasil disalin! Beritahukan kode ini kepada 8 kelompok siswa.`);
       }
     });
+
+    // Copy direct link for mobile phones
+    const btnCopyLink = document.getElementById('btn-copy-link');
+    if (btnCopyLink) {
+      btnCopyLink.addEventListener('click', () => {
+        const code = document.getElementById('session-code-display').textContent;
+        if (code && code !== '------') {
+          const studentUrl = `${window.location.origin}${window.location.pathname.replace(/admin\.html$/i, '')}index.html?session=${encodeURIComponent(code)}`;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(studentUrl);
+          }
+          prompt('Salin link ini untuk dibagikan ke HP siswa (WhatsApp / Classroom / Browser):', studentUrl);
+        }
+      });
+    }
 
     // "MULAI BERSAMA" Action
     document.getElementById('btn-start-together').addEventListener('click', async () => {

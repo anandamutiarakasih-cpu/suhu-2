@@ -66,21 +66,55 @@ const ThermoDB = {
   },
 
   /**
-   * Fetch session by 6-char session code
+   * Fetch session by session code with ultra-flexible matching
+   * Supports: 'TC-7929', 'tc-7929', '7929', 'tc7929', 'TC 7929'
    */
   async getSessionByCode(code) {
     const client = getSupabaseClient();
     if (!client) throw new Error('Supabase client belum terhubung.');
 
-    const cleanCode = code.trim().toUpperCase();
-    const { data, error } = await client
+    let cleanCode = (code || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!cleanCode) return null;
+
+    // 1. Direct match
+    let { data, error } = await client
       .from('game_sessions')
       .select('*')
       .eq('session_code', cleanCode)
       .maybeSingle();
 
-    if (error) throw error;
-    return data;
+    if (data) return data;
+
+    // 2. Try with 'TC-' prefix if user typed just the number/suffix (e.g. '7929' -> 'TC-7929')
+    if (!cleanCode.startsWith('TC-')) {
+      const withPrefix = 'TC-' + cleanCode.replace(/^TC-?/i, '');
+      const res = await client
+        .from('game_sessions')
+        .select('*')
+        .eq('session_code', withPrefix)
+        .maybeSingle();
+      if (res.data) return res.data;
+    }
+
+    // 3. Try inserting dash if user typed 'TC7929' -> 'TC-7929'
+    if (cleanCode.startsWith('TC') && !cleanCode.startsWith('TC-')) {
+      const withDash = 'TC-' + cleanCode.substring(2);
+      const res = await client
+        .from('game_sessions')
+        .select('*')
+        .eq('session_code', withDash)
+        .maybeSingle();
+      if (res.data) return res.data;
+    }
+
+    // 4. Case-insensitive ilike fallback
+    const ilikeRes = await client
+      .from('game_sessions')
+      .select('*')
+      .ilike('session_code', cleanCode)
+      .maybeSingle();
+
+    return ilikeRes.data || null;
   },
 
   /**

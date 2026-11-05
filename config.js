@@ -7,8 +7,8 @@ const THERMO_CONFIG = {
   // Supabase Publishable Key provided by user
   DEFAULT_SUPABASE_KEY: 'sb_publishable__xFEKpJLEyceeRzqdcceXw_o_wUh_zz',
   
-  // Default URL placeholder - can be set directly or entered in Admin panel / Settings
-  DEFAULT_SUPABASE_URL: localStorage.getItem('thermo_supabase_url') || '',
+  // Supabase Project URL for nbtxatgtfqanuipwmetg
+  DEFAULT_SUPABASE_URL: localStorage.getItem('thermo_supabase_url') || 'https://nbtxatgtfqanuipwmetg.supabase.co',
   
   // Maximum scores per mode
   MAX_SCORE_QUIZ: 35,

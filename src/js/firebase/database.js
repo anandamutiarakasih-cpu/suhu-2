@@ -191,16 +191,22 @@ class RealtimeDatabaseEngine {
   /**
    * CREATE A NEW TOURNAMENT SESSION (ADMIN)
    */
-  async createSession(title = 'Turnamen Suhu IPA Kelas VII') {
+  async createSession(title = 'Turnamen Suhu IPA Kelas VII', customCode = '') {
     await ensureAuthenticated();
 
-    // 4-digit code e.g. TC7929 or TC-7929
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-    let rand = '';
-    for (let i = 0; i < 4; i++) {
-      rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Determine sessionCode
+    let sessionCode = '';
+    const cleanCustom = this.cleanCode(customCode);
+    if (cleanCustom && cleanCustom.length >= 2) {
+      sessionCode = cleanCustom.toUpperCase();
+    } else {
+      const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      let rand = '';
+      for (let i = 0; i < 4; i++) {
+        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      sessionCode = `TC-${rand}`;
     }
-    const sessionCode = `TC-${rand}`;
     const code = this.cleanCode(sessionCode);
 
     const sessionData = {
@@ -209,7 +215,7 @@ class RealtimeDatabaseEngine {
       code: code,
       subject: 'SUHU',
       edition: 'THERMO CHAMPIONS — SUHU 2',
-      title: title.trim(),
+      title: (title || 'Turnamen Suhu IPA Kelas VII').trim(),
       status: 'waiting', // waiting | started | paused | ended
       currentPhase: 'LOBBY',
       createdAt: this.getSyncedServerNow(),
@@ -225,17 +231,32 @@ class RealtimeDatabaseEngine {
       sessionData.teams[`team_${i}`] = null;
     }
 
-    // 1. Write to Firebase RTDB
+    // 1. Direct REST write to Firebase RTDB (Super fast & reliable)
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      try {
+        const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
+        await fetch(`${cleanDbUrl}/sessions/${code}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sessionData)
+        });
+      } catch (err) {
+        console.warn('Direct RTDB REST write note:', err.message);
+      }
+    }
+
+    // 2. Write to Firebase RTDB via Modular SDK
     if (this.db) {
       try {
         const sRef = ref(this.db, `sessions/${code}`);
         await set(sRef, sessionData);
       } catch (err) {
-        console.warn('Firebase set error (using Cloud Relay):', err.message);
+        console.warn('Firebase SDK set note:', err.message);
       }
     }
 
-    // 2. Broadcast across all layers
+    // 3. Broadcast across all layers
     this.notifySessionUpdate(code, sessionData);
 
     return {
@@ -247,13 +268,13 @@ class RealtimeDatabaseEngine {
   }
 
   /**
-   * GET SESSION BY CODE (Firebase RTDB -> Cloud Relay -> LocalStorage)
+   * GET SESSION BY CODE (Firebase RTDB -> Direct REST -> Cloud Relay -> LocalStorage)
    */
   async getSession(rawCode) {
     const code = this.cleanCode(rawCode);
     if (!code) return null;
 
-    // 1. Try Firebase RTDB
+    // 1. Try Firebase RTDB SDK
     if (this.db) {
       try {
         const sRef = ref(this.db, `sessions/${code}`);
@@ -266,11 +287,27 @@ class RealtimeDatabaseEngine {
           return val;
         }
       } catch (e) {
-        console.warn('RTDB getSession error, trying Cloud Relay:', e.message);
+        console.warn('RTDB SDK getSession error, trying REST:', e.message);
       }
     }
 
-    // 2. Try Global Cloud Relay
+    // 2. Direct REST GET from Firebase RTDB
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      try {
+        const cleanDbUrl = cfg.databaseURL.replace(/\/$/, '');
+        const res = await fetch(`${cleanDbUrl}/sessions/${code}.json`);
+        if (res.ok) {
+          const val = await res.json();
+          if (val && (val.code === code || val.sessionCode)) {
+            try { localStorage.setItem(`tc_session_${code}`, JSON.stringify(val)); } catch (e) {}
+            return val;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Try Global Cloud Relay
     const cloudSession = await this.fetchFromCloudRelay(code);
     if (cloudSession) {
       try {
@@ -279,7 +316,7 @@ class RealtimeDatabaseEngine {
       return cloudSession;
     }
 
-    // 3. Fallback to LocalStorage
+    // 4. Fallback to LocalStorage
     return this.getLocalSession(code);
   }
 
@@ -733,7 +770,7 @@ export const rtdbEngine = new RealtimeDatabaseEngine();
 // Export function wrappers matching the API
 export const getRTDB = () => rtdbEngine.db;
 export const getSyncedServerNow = () => rtdbEngine.getSyncedServerNow();
-export const createSession = (title) => rtdbEngine.createSession(title);
+export const createSession = (title, customCode) => rtdbEngine.createSession(title, customCode);
 export const getSessionByCode = async (rawCode) => {
   const session = await rtdbEngine.getSession(rawCode);
   if (!session) return null;

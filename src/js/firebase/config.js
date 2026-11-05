@@ -17,20 +17,35 @@ export const STORAGE_KEYS = {
   RTDB_URL: 'tc_rtdb_url'
 };
 
+// Auto-purge any stale references to kalor3 from previous sessions
+try {
+  if (typeof localStorage !== 'undefined') {
+    const savedUrl = localStorage.getItem(STORAGE_KEYS.RTDB_URL);
+    if (savedUrl && savedUrl.includes('kalor3')) {
+      localStorage.removeItem(STORAGE_KEYS.RTDB_URL);
+    }
+    const savedCfg = localStorage.getItem(STORAGE_KEYS.FIREBASE_CONFIG);
+    if (savedCfg && savedCfg.includes('kalor3')) {
+      localStorage.removeItem(STORAGE_KEYS.FIREBASE_CONFIG);
+    }
+  }
+} catch (e) {}
+
 // Deteksi dinamis parameter ?db= dari URL atau LocalStorage
 let initialDbUrl = "https://suhu-2-ipa-default-rtdb.asia-southeast1.firebasedatabase.app";
 try {
-  if (typeof window !== 'undefined' && window.location && window.location.search) {
-    const params = new URLSearchParams(window.location.search);
-    const db = params.get('db');
-    if (db && decodeURIComponent(db).trim().startsWith('https://')) {
-      initialDbUrl = decodeURIComponent(db).trim();
-      localStorage.setItem(STORAGE_KEYS.RTDB_URL, initialDbUrl);
-    } else {
-      const saved = localStorage.getItem(STORAGE_KEYS.RTDB_URL);
-      if (saved && saved.startsWith('https://')) {
-        initialDbUrl = saved;
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const db = params.get('db');
+      if (db && decodeURIComponent(db).trim().startsWith('https://')) {
+        initialDbUrl = decodeURIComponent(db).trim();
+        localStorage.setItem(STORAGE_KEYS.RTDB_URL, initialDbUrl);
       }
+    }
+    const saved = localStorage.getItem(STORAGE_KEYS.RTDB_URL);
+    if (saved && saved.startsWith('https://') && !saved.includes('kalor3')) {
+      initialDbUrl = saved;
     }
   }
 } catch (e) {
@@ -72,7 +87,7 @@ export function getFirebaseConfig() {
     const saved = localStorage.getItem(STORAGE_KEYS.FIREBASE_CONFIG);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && parsed.apiKey && parsed.databaseURL) {
+      if (parsed && parsed.databaseURL && !parsed.databaseURL.includes('kalor3')) {
         return parsed;
       }
     }

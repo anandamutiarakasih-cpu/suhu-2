@@ -62,6 +62,13 @@ class AdminApp {
     if (btnOpenCreate) {
       btnOpenCreate.addEventListener('click', () => {
         sounds.click();
+        const codeInput = document.getElementById('new-session-code');
+        if (codeInput && !codeInput.value) {
+          const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+          let rand = '';
+          for (let i = 0; i < 4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+          codeInput.value = `TC-${rand}`;
+        }
         const m = document.getElementById('modal-create-session');
         if (m) m.style.display = 'flex';
       });
@@ -232,6 +239,9 @@ class AdminApp {
     const titleInput = document.getElementById('new-session-title') || document.getElementById('input-new-session-title');
     const title = (titleInput?.value || '').trim() || 'Turnamen Suhu IPA Kelas VII';
 
+    const codeInput = document.getElementById('new-session-code');
+    const customCode = (codeInput?.value || '').trim().toUpperCase();
+
     const btnSubmit = document.getElementById('btn-confirm-create') || document.getElementById('btn-submit-create-session');
     if (btnSubmit) {
       btnSubmit.disabled = true;
@@ -239,7 +249,7 @@ class AdminApp {
     }
 
     try {
-      const res = await createSession(title);
+      const res = await createSession(title, customCode);
       if (res && res.sessionId) {
         this.currentSessionId = res.sessionId;
         localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION_ID, res.sessionId);
@@ -249,14 +259,16 @@ class AdminApp {
         if (m) m.style.display = 'none';
 
         this.loadSession(res.sessionId);
+      } else {
+        throw new Error('Gagal menerima konfirmasi pembuatan sesi.');
       }
     } catch (err) {
       console.error('Error creating session:', err);
-      showToast('Gagal membuat sesi: ' + err.message, 'error');
+      showToast('Gagal membuat sesi: ' + (err.message || err), 'error');
     } finally {
       if (btnSubmit) {
         btnSubmit.disabled = false;
-        btnSubmit.textContent = 'Buat Sesi & Hasilkan Kode';
+        btnSubmit.textContent = 'Buat Sesi Sekarang';
       }
     }
   }

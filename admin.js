@@ -122,15 +122,32 @@ class AdminManager {
 
     try {
       const { data, error } = await client.from('game_sessions').select('id').limit(1);
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('schema cache') || error.message?.includes('not find the table')) {
+          pill.className = 'connection-status status-offline';
+          pill.style.background = '#fef3c7';
+          pill.style.color = '#b45309';
+          pill.style.borderColor = '#fde68a';
+          text.textContent = 'Supabase Konek, tapi Tabel Belum Dibuat (Jalankan schema.sql)';
+          console.warn('[ThermoChampions] Supabase terhubung ke project, namun tabel game_sessions belum dibuat. Silakan buka Supabase Dashboard -> SQL Editor dan jalankan schema.sql.');
+          return false;
+        }
+        throw error;
+      }
       pill.className = 'connection-status status-online';
+      pill.style.background = '';
+      pill.style.color = '';
+      pill.style.borderColor = '';
       text.textContent = 'Database Terhubung (Online)';
       await ThermoDB.syncServerTime();
       return true;
     } catch (e) {
       console.warn('Connection test warning:', e);
       pill.className = 'connection-status status-offline';
-      text.textContent = 'Koneksi Gagal (Periksa URL)';
+      pill.style.background = '';
+      pill.style.color = '';
+      pill.style.borderColor = '';
+      text.textContent = e.message ? `Koneksi Gagal (${e.message.substring(0, 35)})` : 'Koneksi Gagal (Periksa Jaringan/URL)';
       return false;
     }
   }
@@ -148,7 +165,11 @@ class AdminManager {
       await this.loadSession(session.id);
       alert(`Sesi ${session.session_code} berhasil dibuat! Bagikan kode ini ke 8 kelompok.`);
     } catch (err) {
-      alert('Gagal membuat sesi: ' + (err.message || err));
+      if (err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('not find the table')) {
+        alert('Tabel database belum dibuat di Supabase!\n\nSilakan buka Supabase Dashboard -> SQL Editor, lalu salin dan jalankan seluruh isi file "schema.sql". Setelah itu klik tombol "Simpan & Uji" kembali.');
+      } else {
+        alert('Gagal membuat sesi: ' + (err.message || err));
+      }
     }
   }
 

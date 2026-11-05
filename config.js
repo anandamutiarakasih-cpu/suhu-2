@@ -44,8 +44,16 @@ function getDeviceToken() {
  * Get the current Supabase configuration (URL & Key)
  */
 function getSupabaseConfig() {
-  const url = localStorage.getItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_URL) || THERMO_CONFIG.DEFAULT_SUPABASE_URL;
-  const key = localStorage.getItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_KEY) || THERMO_CONFIG.DEFAULT_SUPABASE_KEY;
+  let url = (localStorage.getItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_URL) || '').trim();
+  if (!url || !url.startsWith('https://') || url.includes('placeholder')) {
+    url = 'https://nbtxatgtfqanuipwmetg.supabase.co';
+    localStorage.setItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_URL, url);
+  }
+  let key = (localStorage.getItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_KEY) || '').trim();
+  if (!key) {
+    key = THERMO_CONFIG.DEFAULT_SUPABASE_KEY;
+    localStorage.setItem(THERMO_CONFIG.STORAGE_KEYS.SUPABASE_KEY, key);
+  }
   return { url: url.trim(), key: key.trim() };
 }
 

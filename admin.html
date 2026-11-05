@@ -12,8 +12,13 @@
 
   <link rel="stylesheet" href="admin.css" />
 
-  <!-- Supabase CDN (Pure Vanilla JS Library) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase JS Library (Local Bundle with CDN Fallback) -->
+  <script src="supabase.min.js"></script>
+  <script>
+    if (typeof window.supabase === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');
+    }
+  </script>
   <script src="config.js"></script>
   <script src="supabase-client.js"></script>
 </head>

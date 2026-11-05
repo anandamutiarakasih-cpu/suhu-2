@@ -664,7 +664,11 @@ class ThermoChampionsApp {
       this.render8GroupButtons();
       return true;
     } catch (err) {
-      if (fb) fb.textContent = 'Gagal memeriksa sesi: ' + (err.message || err);
+      if (err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('not find the table')) {
+        if (fb) fb.innerHTML = '<span style="color:var(--error); font-weight:700;">⚠️ Tabel database belum siap di Supabase. Guru perlu menjalankan file schema.sql di Supabase SQL Editor.</span>';
+      } else {
+        if (fb) fb.textContent = 'Gagal memeriksa sesi: ' + (err.message || err);
+      }
       return false;
     }
   }

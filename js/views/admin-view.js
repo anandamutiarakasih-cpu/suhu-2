@@ -54,6 +54,7 @@ export function renderAdminView(container, { onExit }) {
   const btnExit = container.querySelector('#btn-admin-exit');
   btnExit.addEventListener('click', () => {
     audio.playClick();
+    sessionStorage.removeItem('tc_admin_authenticated');
     if (unsubscribe) unsubscribe();
     if (onExit) onExit();
   });
@@ -64,6 +65,7 @@ export function renderAdminView(container, { onExit }) {
     audio.playClick();
     const pass = container.querySelector('#admin-pass').value.trim();
     if (pass === ADMIN_CREDENTIALS.passcode) {
+      sessionStorage.setItem('tc_admin_authenticated', 'true');
       toast.success('Otentikasi Berhasil. Selamat bertugas!');
       container.querySelector('#admin-auth-card').style.display = 'none';
       renderDashboard();
@@ -71,6 +73,12 @@ export function renderAdminView(container, { onExit }) {
       toast.error('Kode akses salah. Coba periksa kembali.');
     }
   });
+
+  // Remember authentication during active browser session (survive accidental refresh)
+  if (sessionStorage.getItem('tc_admin_authenticated') === 'true') {
+    container.querySelector('#admin-auth-card').style.display = 'none';
+    renderDashboard();
+  }
 
   function renderDashboard() {
     const dashEl = container.querySelector('#admin-dashboard-container');
@@ -88,11 +96,12 @@ export function renderAdminView(container, { onExit }) {
           <div class="tc-cockpit-session-box" id="session-box-controls">
             <div class="tc-code-display">
               <span class="tc-code-lbl">KODE SESI SISWA</span>
-              <span class="tc-code-val" id="disp-session-code">BELUM DIBUAT</span>
+              <span class="tc-code-val" id="disp-session-code">MEMUAT...</span>
             </div>
             <div class="tc-code-btn-group">
-              <button id="btn-copy-code" class="tc-btn tc-btn-sm tc-btn-outline" title="Salin Kode">📋 Salin</button>
-              <button id="btn-copy-link" class="tc-btn tc-btn-sm tc-btn-secondary" title="Salin Link HP Siswa">🔗 Salin Link HP</button>
+              <button id="btn-copy-code" class="tc-btn tc-btn-sm tc-btn-outline" title="Salin Kode Sesi">📋 Salin</button>
+              <button id="btn-copy-link" class="tc-btn tc-btn-sm tc-btn-secondary" title="Salin Link HP Langsung Masuk Siswa">🔗 Salin Link HP</button>
+              <button id="btn-open-existing-session" class="tc-btn tc-btn-sm tc-btn-outline" title="Buka kode sesi yang sudah ada">🔑 Buka Sesi</button>
               <button id="btn-create-new-session" class="tc-btn tc-btn-sm tc-btn-primary">+ Sesi Baru</button>
             </div>
           </div>
@@ -190,6 +199,7 @@ export function renderAdminView(container, { onExit }) {
 
     // Hook buttons
     const btnCreateSession = dashEl.querySelector('#btn-create-new-session');
+    const btnOpenExisting = dashEl.querySelector('#btn-open-existing-session');
     const btnCopyCode = dashEl.querySelector('#btn-copy-code');
     const btnCopyLink = dashEl.querySelector('#btn-copy-link');
     const btnExportCSV = dashEl.querySelector('#btn-export-csv');
@@ -197,19 +207,61 @@ export function renderAdminView(container, { onExit }) {
     const btnReset = dashEl.querySelector('#btn-reset-session');
     const dispCode = dashEl.querySelector('#disp-session-code');
 
-    // Create Session
+    // Create New Session
     btnCreateSession.addEventListener('click', async () => {
       audio.playClick();
+      if (activeSessionCode) {
+        const ok = confirm(`Sesi ${activeSessionCode} sedang aktif. Apakah Anda yakin ingin membuat sesi baru? Siswa harus memasukkan kode baru ini.`);
+        if (!ok) return;
+      }
+
+      btnCreateSession.disabled = true;
+      btnCreateSession.textContent = 'Membuat...';
       try {
         const session = await firebaseService.createSession();
         activeSessionCode = session.code;
+        localStorage.setItem('tc_admin_active_session', activeSessionCode);
         dispCode.textContent = activeSessionCode;
         toast.success(`Sesi ${activeSessionCode} aktif.`);
         attachSessionListener(activeSessionCode);
       } catch (err) {
         toast.error('Gagal membuat sesi: ' + err.message);
+      } finally {
+        btnCreateSession.disabled = false;
+        btnCreateSession.textContent = '+ Sesi Baru';
       }
     });
+
+    // Open Existing Session
+    if (btnOpenExisting) {
+      btnOpenExisting.addEventListener('click', async () => {
+        audio.playClick();
+        const inputCode = prompt('Masukkan kode sesi yang ingin dibuka (contoh: TC4829):', activeSessionCode || '');
+        if (!inputCode) return;
+        const cleanCode = inputCode.trim().toUpperCase().replace(/[-\s]/g, '');
+        if (!cleanCode) return;
+
+        btnOpenExisting.disabled = true;
+        btnOpenExisting.textContent = 'Mencari...';
+        try {
+          const s = await firebaseService.getSession(cleanCode);
+          if (s) {
+            activeSessionCode = cleanCode;
+            localStorage.setItem('tc_admin_active_session', activeSessionCode);
+            dispCode.textContent = activeSessionCode;
+            attachSessionListener(activeSessionCode);
+            toast.success(`Berhasil beralih ke sesi ${activeSessionCode}`);
+          } else {
+            toast.error(`Sesi dengan kode ${cleanCode} tidak ditemukan di server.`);
+          }
+        } catch (e) {
+          toast.error('Gagal membuka sesi: ' + e.message);
+        } finally {
+          btnOpenExisting.disabled = false;
+          btnOpenExisting.textContent = '🔑 Buka Sesi';
+        }
+      });
+    }
 
     // Copy Code
     btnCopyCode.addEventListener('click', () => {
@@ -225,7 +277,7 @@ export function renderAdminView(container, { onExit }) {
       });
     });
 
-    // Copy Direct Student Link
+    // Copy Direct Student Link (ALWAYS points to student root URL, never /admin)
     if (btnCopyLink) {
       btnCopyLink.addEventListener('click', () => {
         audio.playClick();
@@ -233,13 +285,13 @@ export function renderAdminView(container, { onExit }) {
           toast.warning('Buat sesi terlebih dahulu.');
           return;
         }
-        const studentUrl = new URL(window.location.origin + window.location.pathname);
+        const studentUrl = new URL(window.location.origin + '/');
         studentUrl.searchParams.set('session', activeSessionCode);
         if (firebaseConfig && firebaseConfig.databaseURL) {
           studentUrl.searchParams.set('db', firebaseConfig.databaseURL);
         }
         navigator.clipboard.writeText(studentUrl.toString()).then(() => {
-          toast.success('Link HP Siswa disalin! Bagikan ke grup WhatsApp/kelas.');
+          toast.success('Link HP Siswa disalin! Bagikan ke WhatsApp kelas/siswa.');
         }).catch(() => {
           toast.info(studentUrl.toString());
         });
@@ -311,8 +363,16 @@ export function renderAdminView(container, { onExit }) {
       }
     });
 
-    // Auto-create initial session if none exists
-    btnCreateSession.click();
+    // Restore existing session or create initial session if none exists
+    const savedAdminSession = localStorage.getItem('tc_admin_active_session');
+    if (savedAdminSession) {
+      activeSessionCode = savedAdminSession;
+      dispCode.textContent = activeSessionCode;
+      attachSessionListener(activeSessionCode);
+      console.log('Restored active admin session:', activeSessionCode);
+    } else {
+      btnCreateSession.click();
+    }
   }
 
   function attachSessionListener(sessionCode) {

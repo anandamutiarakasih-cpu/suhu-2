@@ -4,7 +4,7 @@
  * Multi-Sync: Firebase RTDB (Direct REST + Modular SDK + Native SSE) + Global Cloud Relay (ntfy SSE/REST) + BroadcastChannel + LocalStorage
  */
 
-import { firebaseConfig } from '../config/firebase-config.js';
+import { firebaseConfig, OFFICIAL_RTDB_URL } from '../config/firebase-config.js';
 import { getPredicate } from '../data/predicates.js';
 import {
   SHUFFLE_CHALLENGES,
@@ -20,10 +20,9 @@ class FirebaseService {
     this.serverTimeOffset = 0;
     this.broadcast = null;
     this.listeners = new Map();
-    this.activeSSE = new Map(); // sessionCode -> cleanup fn
 
     // Standardized RTDB Base URL (ensuring no trailing slash)
-    this.rtdbUrl = (firebaseConfig.databaseURL || 'https://suhu-2-ipa-default-rtdb.asia-southeast1.firebasedatabase.app').replace(/\/$/, '');
+    this.rtdbUrl = (firebaseConfig.databaseURL || OFFICIAL_RTDB_URL).replace(/\/$/, '');
 
     this.initBroadcastChannel();
     this.initFirebase();
@@ -92,6 +91,7 @@ class FirebaseService {
 
   /**
    * NOTIFY SESSION UPDATE ACROSS ALL LAYERS
+   * Only called on local USER ACTIONS to propagate out to others.
    */
   notifySessionUpdate(sessionCode, sessionData) {
     if (!sessionCode || !sessionData) return;
@@ -183,6 +183,7 @@ class FirebaseService {
               try {
                 localStorage.setItem(`tc_session_${sessionCode}`, JSON.stringify(data));
               } catch (e) {}
+              // Local notify only (never call notifySessionUpdate to avoid infinite loops)
               callback(data);
             }
           }
@@ -274,16 +275,20 @@ class FirebaseService {
       });
       if (putRes.ok) {
         console.log('✅ Sesi dibuat di Firebase RTDB (REST):', code);
+      } else {
+        console.warn('REST session create returned status:', putRes.status);
       }
     } catch (e) {
       console.warn('REST session create warning:', e);
     }
 
-    // 2. Push via Firebase Modular SDK if ready
+    // 2. Non-blocking sync to Firebase Modular SDK (Never blocks returning the session code)
     if (this.isFirebaseReady && this.db) {
       try {
         const sRef = this.fbRef(this.db, `sessions/${code}`);
-        await this.fbSet(sRef, sessionData);
+        this.fbSet(sRef, sessionData).catch((err) => {
+          console.warn('Modular SDK set note:', err.message);
+        });
       } catch (e) {
         console.warn('Firebase SDK set error:', e);
       }
@@ -356,11 +361,13 @@ class FirebaseService {
       console.warn('REST join team warning:', e);
     }
 
-    // 2. Firebase Modular SDK update
+    // 2. Non-blocking Modular SDK sync
     if (this.isFirebaseReady && this.db) {
       try {
         const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${num}`);
-        await this.fbSet(teamRef, teamData);
+        this.fbSet(teamRef, teamData).catch((err) => {
+          console.warn('Modular SDK join note:', err.message);
+        });
       } catch (e) {
         console.warn('Firebase join error:', e);
       }
@@ -410,11 +417,13 @@ class FirebaseService {
       console.warn('REST setPhase warning:', e);
     }
 
-    // 2. Modular SDK update
+    // 2. Non-blocking Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
         const sessionRef = this.fbRef(this.db, `sessions/${cleanCode}`);
-        await this.fbUpdate(sessionRef, phasePayload);
+        this.fbUpdate(sessionRef, phasePayload).catch((err) => {
+          console.warn('Modular SDK update note:', err.message);
+        });
       } catch (e) {
         console.warn('Firebase setPhase error:', e);
       }
@@ -478,11 +487,11 @@ class FirebaseService {
       });
     } catch (e) {}
 
-    // 2. Firebase Modular SDK update
+    // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
         const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
-        await this.fbUpdate(teamRef, updatePayload);
+        this.fbUpdate(teamRef, updatePayload).catch(() => {});
       } catch (e) {}
     }
 
@@ -543,15 +552,15 @@ class FirebaseService {
       });
     } catch (e) {}
 
-    // 2. Firebase Modular SDK update
+    // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
         const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
-        await this.fbUpdate(teamRef, {
+        this.fbUpdate(teamRef, {
           'scores/game2': newG2,
           'scores/total': team.scores.total,
           predicate: team.predicate
-        });
+        }).catch(() => {});
       } catch (e) {}
     }
 
@@ -622,15 +631,15 @@ class FirebaseService {
       });
     } catch (e) {}
 
-    // 2. Firebase Modular SDK update
+    // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
         const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
-        await this.fbUpdate(teamRef, {
+        this.fbUpdate(teamRef, {
           'scores/game3': newG3,
           'scores/total': team.scores.total,
           predicate: team.predicate
-        });
+        }).catch(() => {});
       } catch (e) {}
     }
 
@@ -674,11 +683,11 @@ class FirebaseService {
       });
     } catch (e) {}
 
-    // 2. Firebase Modular SDK
+    // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
         const sessionRef = this.fbRef(this.db, `sessions/${cleanCode}`);
-        await this.fbSet(sessionRef, session);
+        this.fbSet(sessionRef, session).catch(() => {});
       } catch (e) {}
     }
 
@@ -701,14 +710,19 @@ class FirebaseService {
       if (s) callback(s);
     });
 
+    let fbUnsubscribe = null;
+
     // 1. Firebase Live SDK Listener
     if (this.isFirebaseReady && this.db) {
       try {
         const sRef = this.fbRef(this.db, `sessions/${cleanCode}`);
-        this.fbOnValue(sRef, (snap) => {
+        fbUnsubscribe = this.fbOnValue(sRef, (snap) => {
           const val = snap.val();
           if (val) {
-            this.notifySessionUpdate(cleanCode, val);
+            // ONLY notify local in-memory listeners (never re-publish to avoid loops)
+            if (this.listeners.has(cleanCode)) {
+              this.listeners.get(cleanCode).forEach((cb) => cb(val));
+            }
           }
         });
       } catch (e) {}
@@ -735,7 +749,9 @@ class FirebaseService {
       if (e.key === `tc_session_${cleanCode}` && e.newValue) {
         try {
           const val = JSON.parse(e.newValue);
-          callback(val);
+          if (this.listeners.has(cleanCode)) {
+            this.listeners.get(cleanCode).forEach((cb) => cb(val));
+          }
         } catch (err) {}
       }
     };
@@ -744,6 +760,9 @@ class FirebaseService {
     return () => {
       if (this.listeners.has(cleanCode)) {
         this.listeners.get(cleanCode).delete(callback);
+      }
+      if (fbUnsubscribe) {
+        try { fbUnsubscribe(); } catch (e) {}
       }
       if (cleanupFbSSE) cleanupFbSSE();
       if (cleanupCloudSSE) cleanupCloudSSE();
@@ -774,12 +793,15 @@ class FirebaseService {
       console.warn('REST getSession warning:', e);
     }
 
-    // 2. Try Firebase RTDB Modular SDK
+    // 2. Try Firebase RTDB Modular SDK (Non-blocking promise with timeout)
     if (this.isFirebaseReady && this.db) {
       try {
         const sRef = this.fbRef(this.db, `sessions/${cleanCode}`);
-        const snap = await this.fbGet(sRef);
-        if (snap.exists()) {
+        const snap = await Promise.race([
+          this.fbGet(sRef),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SDK timeout')), 1500))
+        ]);
+        if (snap && snap.exists()) {
           const val = snap.val();
           try {
             localStorage.setItem(`tc_session_${cleanCode}`, JSON.stringify(val));

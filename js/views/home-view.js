@@ -121,7 +121,7 @@ export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
   formJoin.addEventListener('submit', (e) => {
     e.preventDefault();
     audio.playClick();
-    let code = container.querySelector('#input-session-code').value.trim().toUpperCase();
+    let code = container.querySelector('#input-session-code').value.trim().toUpperCase().replace(/[-\s]/g, '');
     if (!code) {
       toast.error('Masukkan kode sesi terlebih dahulu.');
       return;

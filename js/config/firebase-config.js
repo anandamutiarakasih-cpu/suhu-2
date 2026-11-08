@@ -4,35 +4,23 @@
  * Proyek: suhu-2-ipa
  */
 
-// Auto-purge any stale references to legacy kalor3 from localStorage
+export const OFFICIAL_RTDB_URL = "https://suhu-2-ipa-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+// Auto-purge any stale or broken references from localStorage
 try {
   if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('tc_rtdb_url');
-    if (saved && saved.includes('kalor3')) {
-      localStorage.removeItem('tc_rtdb_url');
-    }
+    localStorage.removeItem('tc_rtdb_url');
   }
 } catch (e) {}
 
-// Dynamically check if ?db= parameter is provided in the URL or LocalStorage
-let initialDbUrl = "https://suhu-2-ipa-default-rtdb.asia-southeast1.firebasedatabase.app";
+// Dynamically check if ?db= parameter is explicitly provided in the URL query string
+let initialDbUrl = OFFICIAL_RTDB_URL;
 try {
   if (typeof window !== 'undefined' && window.location && window.location.search) {
     const params = new URLSearchParams(window.location.search);
     const db = params.get('db');
     if (db && decodeURIComponent(db).trim().startsWith('https://')) {
       initialDbUrl = decodeURIComponent(db).trim();
-      localStorage.setItem('tc_rtdb_url', initialDbUrl);
-    } else {
-      const saved = localStorage.getItem('tc_rtdb_url');
-      if (saved && saved.startsWith('https://') && !saved.includes('kalor3')) {
-        initialDbUrl = saved;
-      }
-    }
-  } else if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('tc_rtdb_url');
-    if (saved && saved.startsWith('https://') && !saved.includes('kalor3')) {
-      initialDbUrl = saved;
     }
   }
 } catch (e) {

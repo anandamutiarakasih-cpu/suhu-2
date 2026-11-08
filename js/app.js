@@ -32,6 +32,15 @@ class ThermoChampionsApp {
       particleService.init(this.canvas);
     }
 
+    // Direct /admin route support
+    const isExplicitAdmin = (typeof window !== 'undefined' && window.location && 
+      (window.location.pathname.endsWith('/admin') || new URLSearchParams(window.location.search).has('admin')));
+
+    if (isExplicitAdmin) {
+      this.navigate('admin');
+      return;
+    }
+
     // Check for existing saved team session (survive page refresh / reconnect)
     const stored = firebaseService.getStoredTeamSession();
     if (stored && stored.sessionCode && stored.teamNumber) {
@@ -45,7 +54,7 @@ class ThermoChampionsApp {
         if (typeof window !== 'undefined' && window.location && window.location.search) {
           const urlParams = new URLSearchParams(window.location.search);
           const rawCode = urlParams.get('session');
-          if (rawCode) urlCode = rawCode.trim().toUpperCase();
+          if (rawCode) urlCode = rawCode.trim().toUpperCase().replace(/[-\s]/g, '');
         }
       } catch (e) {}
 
@@ -106,6 +115,15 @@ class ThermoChampionsApp {
 
     this.currentRoute = route;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Reflect clean URL for admin/home if supported
+    if (typeof window !== 'undefined' && window.history) {
+      if (route === 'admin' && !window.location.pathname.endsWith('/admin')) {
+        window.history.pushState({}, '', '/admin');
+      } else if (route === 'home' && window.location.pathname.endsWith('/admin')) {
+        window.history.pushState({}, '', '/');
+      }
+    }
 
     switch (route) {
       case 'home':

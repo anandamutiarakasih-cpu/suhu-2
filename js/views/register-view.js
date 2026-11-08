@@ -22,7 +22,11 @@ export async function renderRegisterView(container, { sessionCode, onRegistered,
   // Fetch session with retry for mobile networks
   let session = await firebaseService.getSession(sessionCode);
   if (!session) {
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 800));
+    session = await firebaseService.getSession(sessionCode);
+  }
+  if (!session) {
+    await new Promise((r) => setTimeout(r, 1200));
     session = await firebaseService.getSession(sessionCode);
   }
 

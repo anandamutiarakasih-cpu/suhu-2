@@ -1,6 +1,7 @@
 {
   "name": "thermo-champions",
   "version": "2.0.0",
+  "type": "module",
   "description": "THERMO CHAMPIONS — Media Pembelajaran IPA Kelas VII SMP (Materi Suhu)",
   "scripts": {
     "start": "npx serve ."

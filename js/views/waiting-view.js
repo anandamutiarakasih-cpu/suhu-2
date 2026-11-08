@@ -12,13 +12,16 @@ export function renderWaitingView(container, { sessionCode, teamNumber, onPhaseC
   container.innerHTML = `
     <div class="tc-view tc-waiting-view">
       <!-- Top Status Banner -->
-      <header class="tc-waiting-header">
-        <div class="tc-badge-lab">
-          <span class="tc-pulse-dot"></span>
-          LOBI TERMAL • SINKRONISASI AKTIF
+      <header class="tc-waiting-header" style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <div class="tc-badge-lab">
+            <span class="tc-pulse-dot"></span>
+            LOBI TERMAL • SINKRONISASI AKTIF
+          </div>
+          <h2 class="tc-waiting-title">Ruang Persiapan Kelompok</h2>
+          <div class="tc-session-tag">KODE SESI: <strong>${sessionCode}</strong></div>
         </div>
-        <h2 class="tc-waiting-title">Ruang Persiapan Kelompok</h2>
-        <div class="tc-session-tag">KODE SESI: <strong>${sessionCode}</strong></div>
+        <button id="btn-waiting-leave" class="tc-btn tc-btn-sm tc-btn-ghost danger">← Keluar Kelompok</button>
       </header>
 
       <!-- Active Team Profile Box -->
@@ -58,6 +61,19 @@ export function renderWaitingView(container, { sessionCode, teamNumber, onPhaseC
       </div>
     </div>
   `;
+
+  // Handle Leave / Switch Team
+  const btnLeave = container.querySelector('#btn-waiting-leave');
+  if (btnLeave) {
+    btnLeave.addEventListener('click', () => {
+      audio.playClick();
+      if (confirm('Keluar dari kelompok dan kembali ke halaman utama?')) {
+        if (unsubscribe) unsubscribe();
+        firebaseService.clearStoredTeamSession();
+        window.location.href = '/';
+      }
+    });
+  }
 
   // Start Realtime Session Listener
   unsubscribe = firebaseService.listenToSession(sessionCode, (session) => {

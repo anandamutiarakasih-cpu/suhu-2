@@ -113,29 +113,53 @@ export function renderAdminView(container, { onExit }) {
           <div class="tc-phase-btn-row">
             <button class="tc-btn tc-btn-phase" data-phase="LOBBY" id="phase-btn-lobby">
               <span class="tc-phase-num">0</span>
-              <span>Lobi Persiapan</span>
+              <div>
+                <span>Lobi Persiapan</span>
+                <small class="tc-phase-sub">Pendaftaran 8 Kelompok</small>
+              </div>
             </button>
             <button class="tc-btn tc-btn-phase" data-phase="GAME1_MEMORIZE" id="phase-btn-g1-mem">
               <span class="tc-phase-num">1A</span>
-              <span>Game 1: Menghafal (35s)</span>
+              <div>
+                <span>Game 1: Menghafal (35s)</span>
+                <small class="tc-phase-sub">Fase Hafalan (0 Pts)</small>
+              </div>
             </button>
             <button class="tc-btn tc-btn-phase" data-phase="GAME1_PLAY" id="phase-btn-g1-play">
               <span class="tc-phase-num">1B</span>
-              <span>Game 1: Susun & Cocokkan (75s)</span>
+              <div>
+                <span>Game 1: Susun & Cocokkan (75s)</span>
+                <small class="tc-phase-sub">Uji Daya Ingat (Maks 30 Pts)</small>
+              </div>
             </button>
             <button class="tc-btn tc-btn-phase" data-phase="GAME2" id="phase-btn-g2">
               <span class="tc-phase-num">2</span>
-              <span>Game 2: Word Scramble</span>
+              <div>
+                <span>Game 2: Word Scramble</span>
+                <small class="tc-phase-sub">Anagram Istilah (Maks 35 Pts)</small>
+              </div>
             </button>
             <button class="tc-btn tc-btn-phase" data-phase="GAME3" id="phase-btn-g3">
               <span class="tc-phase-num">3</span>
-              <span>Game 3: Extreme Addition (120s)</span>
+              <div>
+                <span>Game 3: Extreme Addition (120s)</span>
+                <small class="tc-phase-sub">Kalkulasi Suhu (Maks 35 Pts)</small>
+              </div>
             </button>
             <button class="tc-btn tc-btn-phase gold" data-phase="FINISHED" id="phase-btn-finish">
               <span class="tc-phase-num">🏆</span>
-              <span>Buka Leaderboard</span>
+              <div>
+                <span>Buka Leaderboard</span>
+                <small class="tc-phase-sub">Pengumuman Juara (Total 100)</small>
+              </div>
             </button>
           </div>
+        </div>
+
+        <!-- Realtime Phase Guidance Banner -->
+        <div class="tc-admin-phase-info" id="admin-phase-info-box">
+          <div class="tc-api-badge"><span class="tc-pulse-dot"></span> <span id="api-status-badge">FASE: LOBI</span></div>
+          <div class="tc-api-text" id="api-status-text">Menunggu siswa bergabung ke dalam 8 kelompok. Klik "1A: Game 1 Menghafal" untuk memulai kompetisi.</div>
         </div>
 
         <!-- Quick Tools Bar -->
@@ -383,9 +407,44 @@ export function renderAdminView(container, { onExit }) {
 
       // Update Phase Buttons active state
       const curPhase = session.currentPhase || 'LOBBY';
+      const btn1B = container.querySelector('#phase-btn-g1-play');
+      if (btn1B) btn1B.classList.remove('pulse-next');
+
       container.querySelectorAll('.tc-btn-phase').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.phase === curPhase);
       });
+
+      // Update Phase Guidance Banner
+      const badgeLbl = container.querySelector('#api-status-badge');
+      const descLbl = container.querySelector('#api-status-text');
+      if (badgeLbl && descLbl) {
+        if (curPhase === 'LOBBY') {
+          badgeLbl.textContent = 'FASE: LOBI PERSIAPAN';
+          descLbl.textContent = 'Menunggu siswa mendaftar ke 8 kelompok. Klik "1A: Game 1 Menghafal" untuk memulai kompetisi.';
+        } else if (curPhase === 'GAME1_MEMORIZE') {
+          badgeLbl.textContent = 'FASE 1A: MENGHAFAL KARTU MATERI';
+          descLbl.innerHTML = 'Siswa sedang mengamati 10 kartu konsep suhu (35s). <strong>⚠️ BELUM ADA PENILAIAN DI FASE INI (G1 = 0 pts)</strong>. Setelah 35 detik selesai, klik tombol <strong>"1B: Game 1 Susun & Cocokkan"</strong> untuk membuka soal dan penilaian daya ingat!';
+          
+          // Check if 35s has passed to suggest clicking 1B
+          const startMs = session.phaseStartTime || Date.now();
+          const elapsed = (Date.now() - startMs) / 1000;
+          if (elapsed >= (session.settings?.game1MemorizeTime || 35)) {
+            if (btn1B) btn1B.classList.add('pulse-next');
+          }
+        } else if (curPhase === 'GAME1_PLAY') {
+          badgeLbl.textContent = 'FASE 1B: UJI DAYA INGAT (SUSUN & COCOKKAN)';
+          descLbl.textContent = 'Siswa sedang mencocokkan 10 tantangan ingatan konsep suhu. Nilai Game 1 (Maks 30 Poin) akan masuk otomatis ke kolom G1 (30).';
+        } else if (curPhase === 'GAME2') {
+          badgeLbl.textContent = 'FASE: GAME 2 — WORD SCRAMBLE';
+          descLbl.textContent = 'Siswa sedang menyusun anagram istilah suhu. Nilai Game 2 (Maks 35 Poin) akan masuk otomatis ke kolom G2 (35).';
+        } else if (curPhase === 'GAME3') {
+          badgeLbl.textContent = 'FASE: GAME 3 — EXTREME ADDITION (KALKULASI SUHU)';
+          descLbl.textContent = 'Siswa sedang menghitung konversi skala suhu. Nilai Game 3 (Maks 35 Poin) akan masuk otomatis ke kolom G3 (35).';
+        } else if (curPhase === 'FINISHED') {
+          badgeLbl.textContent = 'KOMPETISI SELESAI — LEADERBOARD TERBUKA';
+          descLbl.textContent = 'Seluruh kelompok dapat melihat podium juara 1, 2, 3 dan rekap nilai akhir (Maks 100 Poin).';
+        }
+      }
 
       // Update 8 Teams Cards
       const teams = session.teams || {};

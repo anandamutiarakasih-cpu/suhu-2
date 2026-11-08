@@ -1,6 +1,6 @@
 /**
  * THERMO CHAMPIONS: SUHU EDITION (SUHU 2)
- * Game 1 - Shuffle and Recall View (Memorize -> Recall & Match)
+ * Game 1 - Shuffle and Recall View (1A: Memorize -> 1B: Recall & Match)
  */
 
 import { SHUFFLE_MEMORIZE_CARDS, SHUFFLE_CHALLENGES } from '../data/questions-bank.js';
@@ -14,32 +14,58 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
   let sessionUnsubscribe = null;
   let userAnswers = {};
   let isSubmitted = false;
+  let currentLocalPhase = isMemorizePhase ? 'MEMORIZE' : 'PLAY';
 
-  if (isMemorizePhase) {
-    renderMemorizeMode();
-  } else {
-    renderPlayMode();
-  }
+  // Check initial team progress from server
+  firebaseService.getSession(sessionCode).then((session) => {
+    const team = session?.teams?.[`team_${teamNumber}`];
+    if (team?.progress?.game1Submitted) {
+      isSubmitted = true;
+      currentLocalPhase = 'FINISHED';
+      renderFinishedMode(team.scores?.game1 || 0);
+      return;
+    }
+
+    if (isMemorizePhase) {
+      renderMemorizeMode();
+    } else {
+      renderPlayMode();
+    }
+  });
 
   // Realtime Session listener to detect phase change from Admin
   sessionUnsubscribe = firebaseService.listenToSession(sessionCode, (session) => {
     if (!session) return;
-    if (session.currentPhase && session.currentPhase !== (isMemorizePhase ? 'GAME1_MEMORIZE' : 'GAME1_PLAY')) {
+    const phase = session.currentPhase;
+
+    // Transition from 1A (Memorize) to 1B (Play)
+    if (phase === 'GAME1_PLAY' && currentLocalPhase === 'MEMORIZE') {
+      currentLocalPhase = 'PLAY';
+      renderPlayMode();
+      return;
+    }
+
+    // Phase moved outside Game 1 (GAME2, GAME3, LOBBY, FINISHED)
+    if (phase && phase !== 'GAME1_MEMORIZE' && phase !== 'GAME1_PLAY') {
       cleanup();
-      if (onPhaseChange) onPhaseChange(session.currentPhase, session);
+      if (onPhaseChange) onPhaseChange(phase, session);
     }
   });
 
   // ==========================================
-  // FASE 1: MEMORIZE (MENGHAFAL KARTU MATERI)
+  // FASE 1A: MEMORIZE (MENGHAFAL KARTU MATERI)
+  // Waktu: 35 Detik. Nilai: 0 (Murni hafalan)
   // ==========================================
   function renderMemorizeMode() {
+    currentLocalPhase = 'MEMORIZE';
+    if (timerInstance) timerInstance.destroy();
+
     container.innerHTML = `
       <div class="tc-view tc-game1-view tc-g1-memorize">
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 1 • BABAK 1 DARI 3</span>
+            <span class="tc-badge-lab">GAME 1 • FASE 1A DARI 3</span>
             <h2 class="tc-hud-title">SHUFFLE AND RECALL: FASE HAFALAN</h2>
           </div>
 
@@ -49,13 +75,13 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
 
           <div class="tc-hud-team">
             <span class="tc-hud-team-tag">KELOMPOK ${teamNumber}</span>
-            <span class="tc-hud-score-tag">TARGET: 30 PTS</span>
+            <span class="tc-hud-score-tag">STATUS: MENGAMATI MATERI (0 PTS)</span>
           </div>
         </div>
 
         <div class="tc-banner-instruction">
           <span class="tc-fire-icon">🔥</span>
-          <span>Amati dan hafalkan konsep, rumus skala termometer, dan contoh pemuaian di bawah ini sebelum waktu habis!</span>
+          <span>Amati dan hafalkan konsep, rumus skala termometer, dan contoh pemuaian di bawah ini sebelum waktu habis! (Babak penilaian di Fase 1B)</span>
         </div>
 
         <!-- 10 Memorize Cards Grid -->
@@ -82,7 +108,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
     // Start 35s Synchronized Timer
     const timerBox = container.querySelector('#g1-mem-timer-container');
     firebaseService.getSession(sessionCode).then((session) => {
-      const startTime = session?.phaseStartTime || Date.now();
+      const startTime = session?.phaseStartTime || firebaseService.getServerTime();
       const duration = session?.settings?.game1MemorizeTime || 35;
 
       timerInstance = new SyncTimer({
@@ -91,20 +117,57 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         startTimeMs: startTime,
         getServerTime: () => firebaseService.getServerTime(),
         onComplete: () => {
-          toast.warning('Waktu menghafal selesai! Bersiap menyusun informasi...');
+          toast.info('Waktu menghafal selesai! Kartu konsep telah ditutup.');
           audio.playPhaseTransition();
-          setTimeout(() => {
-            renderPlayMode();
-          }, 800);
+          renderMemorizeStandby();
         }
       });
     });
   }
 
   // ==========================================
-  // FASE 2: PLAY / RECALL & SHUFFLE
+  // STANDBY STATE: Menghafal Selesai, Menunggu Guru Membuka 1B
+  // ==========================================
+  function renderMemorizeStandby() {
+    if (timerInstance) timerInstance.destroy();
+
+    container.innerHTML = `
+      <div class="tc-view tc-game1-view tc-g1-standby">
+        <!-- Top HUD -->
+        <div class="tc-game-hud">
+          <div class="tc-hud-badge">
+            <span class="tc-badge-lab">GAME 1 • FASE 1A SELESAI</span>
+            <h2 class="tc-hud-title">WAKTU MENGHAFAL TELAH HABIS</h2>
+          </div>
+
+          <div class="tc-hud-team">
+            <span class="tc-hud-team-tag">KELOMPOK ${teamNumber}</span>
+            <span class="tc-hud-score-tag">TARGET BERIKUTNYA: 30 PTS</span>
+          </div>
+        </div>
+
+        <div class="tc-card tc-standby-card" style="text-align: center; padding: 3rem 1.5rem; margin-top: 1.5rem;">
+          <div style="font-size: 4rem; margin-bottom: 1rem; animation: tcBounce 1.5s infinite;">🧠</div>
+          <h2 style="font-size: 1.75rem; font-weight: 800; color: #f8fafc; margin-bottom: 0.75rem;">Kartu Konsep Telah Ditutup!</h2>
+          <p style="color: #94a3b8; max-width: 540px; margin: 0 auto 1.75rem; line-height: 1.6; font-size: 1.05rem;">
+            Kerja bagus! Seluruh informasi materi suhu & pemuaian telah disimpan dalam ingatanmu.
+            Bersiaplah mencocokkan 10 pasangan konsep pada <strong>Fase 1B: Uji Daya Ingat</strong>.
+          </p>
+          <div class="tc-radar-spinner" style="margin: 0 auto 1.25rem;"></div>
+          <p style="color: #38bdf8; font-weight: 700; font-size: 1rem;">
+            <span class="tc-pulse-dot"></span> Menunggu Guru mengaktifkan Fase 1B di layar utama...
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  // ==========================================
+  // FASE 1B: PLAY / RECALL & MATCH (MENGINGAT)
+  // Waktu: 75 Detik. Nilai: 0 - 30 Poin
   // ==========================================
   function renderPlayMode() {
+    currentLocalPhase = 'PLAY';
     if (timerInstance) timerInstance.destroy();
     userAnswers = {};
     isSubmitted = false;
@@ -117,7 +180,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 1 • FASE MENYUSUN</span>
+            <span class="tc-badge-lab">GAME 1 • FASE 1B: MENYUSUN & MENGINGAT</span>
             <h2 class="tc-hud-title">SHUFFLE & RECALL: UJI DAYA INGAT</h2>
           </div>
 
@@ -133,13 +196,12 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
 
         <div class="tc-banner-instruction pulse">
           <span>🧠</span>
-          <span>Cocokkan setiap istilah skala suhu, alat ukur, atau rumus pemuaian dengan pasangan yang tepat!</span>
+          <span>Cocokkan setiap istilah skala suhu, alat ukur, atau rumus pemuaian dengan pasangan yang tepat! (Maks 30 Poin)</span>
         </div>
 
         <!-- Challenges Interactive List -->
         <div class="tc-challenges-list" id="g1-challenges-container">
           ${shuffledChallenges.map((item, index) => {
-            // Shuffle options for this item
             const opts = [...item.options].sort(() => Math.random() - 0.5);
             return `
               <div class="tc-card tc-challenge-card" data-id="${item.id}">
@@ -209,10 +271,10 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
       }
     });
 
-    // Start 75s Synchronized Timer
+    // Start 75s Synchronized Timer from 1B Phase Start
     const timerBox = container.querySelector('#g1-play-timer-container');
     firebaseService.getSession(sessionCode).then((session) => {
-      const startTime = session?.phaseStartTime || Date.now();
+      const startTime = session?.phaseStartTime || firebaseService.getServerTime();
       const duration = session?.settings?.game1PlayTime || 75;
 
       timerInstance = new SyncTimer({
@@ -263,14 +325,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
           toast.warning(`Jawaban Game 1 selesai diperiksa.`);
         }
 
-        // Show Result Banner
-        container.querySelector('.tc-sticky-submit-bar').innerHTML = `
-          <div class="tc-g1-finished-box">
-            <span class="tc-fin-badge">GAME 1 SELESAI</span>
-            <h3>Skor Kamu: <strong>${res.score} / 30 Poin</strong></h3>
-            <p>Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 2: Word Scramble</strong>...</p>
-          </div>
-        `;
+        renderFinishedMode(res.score);
 
         if (onGameCompleted) {
           onGameCompleted(res);
@@ -282,6 +337,46 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         isSubmitted = false;
       }
     }
+  }
+
+  // ==========================================
+  // FINISHED STATE: Jawaban Game 1 Terkirim
+  // ==========================================
+  function renderFinishedMode(score) {
+    currentLocalPhase = 'FINISHED';
+    if (timerInstance) timerInstance.destroy();
+
+    container.innerHTML = `
+      <div class="tc-view tc-game1-view tc-g1-finished">
+        <!-- Top HUD -->
+        <div class="tc-game-hud">
+          <div class="tc-hud-badge">
+            <span class="tc-badge-lab">GAME 1 SELESAI</span>
+            <h2 class="tc-hud-title">SHUFFLE & RECALL TUNTAS</h2>
+          </div>
+
+          <div class="tc-hud-team">
+            <span class="tc-hud-team-tag">KELOMPOK ${teamNumber}</span>
+            <div class="tc-progress-counter complete">10 / 10 Selesai</div>
+          </div>
+        </div>
+
+        <div class="tc-card tc-finish-card">
+          <div class="tc-badge-lab">SKOR RESMI FASE 1B</div>
+          <div class="tc-finish-trophy">⚡</div>
+          <h2 class="tc-finish-title">Uji Daya Ingat Selesai!</h2>
+          <div class="tc-finish-score-box">
+            <span>Skor Game 1 Kelompokmu:</span>
+            <strong>${score} / 30 Poin</strong>
+          </div>
+          <p class="tc-finish-desc">
+            Hebat! Jawaban Game 1 telah tersimpan secara permanen di server. 
+            Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 2: Word Scramble</strong>...
+          </p>
+          <div class="tc-radar-spinner"></div>
+        </div>
+      </div>
+    `;
   }
 
   function cleanup() {

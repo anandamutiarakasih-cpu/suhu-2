@@ -438,12 +438,18 @@ class FirebaseService {
    */
   async submitGame1(sessionCode, teamNumber, userAnswers) {
     const cleanCode = String(sessionCode || '').trim().toUpperCase();
+    const num = parseInt(teamNumber, 10);
+    const teamKey = `team_${num}`;
     const session = await this.getSession(cleanCode);
-    if (!session || !session.teams || !session.teams[`team_${teamNumber}`]) {
+    if (!session || !session.teams || !session.teams[teamKey]) {
       throw new Error('Data kelompok tidak ditemukan.');
     }
 
-    const team = session.teams[`team_${teamNumber}`];
+    if (session.currentPhase === 'GAME1_MEMORIZE') {
+      return { success: false, message: 'Fase menghafal sedang berlangsung. Pengiriman jawaban dibuka saat Guru memulai Fase 1B.' };
+    }
+
+    const team = session.teams[teamKey];
     if (team.progress?.game1Submitted) {
       return { success: false, message: 'Game 1 sudah dikirim sebelumnya.' };
     }
@@ -462,6 +468,13 @@ class FirebaseService {
     }
     score = Math.min(30, Math.round(score * 10) / 10);
 
+    if (!team.scores) {
+      team.scores = { game1: 0, game2: 0, game3: 0, total: 0 };
+    }
+    if (!team.progress) {
+      team.progress = { game1Submitted: false, game2Index: 0, game3Index: 0 };
+    }
+
     team.scores.game1 = score;
     team.scores.total = Math.min(100, Math.round((team.scores.game1 + (team.scores.game2 || 0) + (team.scores.game3 || 0)) * 10) / 10);
     team.predicate = getPredicate(team.scores.total).title;
@@ -476,7 +489,7 @@ class FirebaseService {
 
     // 1. Direct REST update
     try {
-      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/team_${teamNumber}.json`, {
+      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/${teamKey}.json`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -490,7 +503,7 @@ class FirebaseService {
     // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
-        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
+        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/${teamKey}`);
         this.fbUpdate(teamRef, updatePayload).catch(() => {});
       } catch (e) {}
     }
@@ -510,12 +523,14 @@ class FirebaseService {
    */
   async submitGame2Word(sessionCode, teamNumber, itemId, answer, remainingSec = 0) {
     const cleanCode = String(sessionCode || '').trim().toUpperCase();
+    const num = parseInt(teamNumber, 10);
+    const teamKey = `team_${num}`;
     const session = await this.getSession(cleanCode);
-    if (!session || !session.teams || !session.teams[`team_${teamNumber}`]) {
+    if (!session || !session.teams || !session.teams[teamKey]) {
       throw new Error('Data kelompok tidak ditemukan.');
     }
 
-    const team = session.teams[`team_${teamNumber}`];
+    const team = session.teams[teamKey];
     const item = WORD_SCRAMBLE_ITEMS.find((w) => w.id === itemId);
     if (!item) return { correct: false, score: 0 };
 
@@ -533,7 +548,11 @@ class FirebaseService {
       addedScore = Math.round(addedScore * 10) / 10;
     }
 
-    const currentG2 = team.scores?.game2 || 0;
+    if (!team.scores) {
+      team.scores = { game1: 0, game2: 0, game3: 0, total: 0 };
+    }
+
+    const currentG2 = team.scores.game2 || 0;
     const newG2 = Math.min(35, Math.round((currentG2 + addedScore) * 10) / 10);
 
     team.scores.game2 = newG2;
@@ -542,7 +561,7 @@ class FirebaseService {
 
     // 1. Direct REST update
     try {
-      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/team_${teamNumber}.json`, {
+      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/${teamKey}.json`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -555,7 +574,7 @@ class FirebaseService {
     // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
-        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
+        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/${teamKey}`);
         this.fbUpdate(teamRef, {
           'scores/game2': newG2,
           'scores/total': team.scores.total,
@@ -579,12 +598,14 @@ class FirebaseService {
    */
   async submitGame3Calculation(sessionCode, teamNumber, itemId, rawAnswer, remainingSec = 0) {
     const cleanCode = String(sessionCode || '').trim().toUpperCase();
+    const num = parseInt(teamNumber, 10);
+    const teamKey = `team_${num}`;
     const session = await this.getSession(cleanCode);
-    if (!session || !session.teams || !session.teams[`team_${teamNumber}`]) {
+    if (!session || !session.teams || !session.teams[teamKey]) {
       throw new Error('Data kelompok tidak ditemukan.');
     }
 
-    const team = session.teams[`team_${teamNumber}`];
+    const team = session.teams[teamKey];
     const item = HEAT_CALCULATION_ITEMS.find((h) => h.id === itemId);
     if (!item) return { correct: false, score: 0 };
 
@@ -597,10 +618,10 @@ class FirebaseService {
       clean = clean.replace(/,/g, '');
     }
 
-    const num = parseFloat(clean);
+    const valNum = parseFloat(clean);
     const expected = item.correctAnswer;
     const tolerance = item.tolerance || 0.01;
-    const isCorrect = !isNaN(num) && Math.abs(num - expected) <= Math.max(0.001, Math.abs(expected) * tolerance);
+    const isCorrect = !isNaN(valNum) && Math.abs(valNum - expected) <= Math.max(0.001, Math.abs(expected) * tolerance);
 
     let addedScore = 0;
     if (isCorrect) {
@@ -612,7 +633,11 @@ class FirebaseService {
       addedScore = Math.round(addedScore * 10) / 10;
     }
 
-    const currentG3 = team.scores?.game3 || 0;
+    if (!team.scores) {
+      team.scores = { game1: 0, game2: 0, game3: 0, total: 0 };
+    }
+
+    const currentG3 = team.scores.game3 || 0;
     const newG3 = Math.min(35, Math.round((currentG3 + addedScore) * 10) / 10);
 
     team.scores.game3 = newG3;
@@ -621,7 +646,7 @@ class FirebaseService {
 
     // 1. Direct REST update
     try {
-      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/team_${teamNumber}.json`, {
+      await fetch(`${this.rtdbUrl}/sessions/${cleanCode}/teams/${teamKey}.json`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -634,7 +659,7 @@ class FirebaseService {
     // 2. Non-blocking Firebase Modular SDK update
     if (this.isFirebaseReady && this.db) {
       try {
-        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/team_${teamNumber}`);
+        const teamRef = this.fbRef(this.db, `sessions/${cleanCode}/teams/${teamKey}`);
         this.fbUpdate(teamRef, {
           'scores/game3': newG3,
           'scores/total': team.scores.total,

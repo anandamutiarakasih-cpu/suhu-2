@@ -18,8 +18,8 @@ export class SyncTimer {
   constructor({ container, durationSec, startTimeMs, getServerTime, onComplete, onTick }) {
     this.container = container;
     this.durationSec = durationSec;
-    this.startTimeMs = startTimeMs || Date.now();
     this.getServerTime = getServerTime || (() => Date.now());
+    this.startTimeMs = startTimeMs || this.getServerTime();
     this.onComplete = onComplete;
     this.onTick = onTick;
     this.timerId = null;
@@ -61,7 +61,7 @@ export class SyncTimer {
 
   update() {
     const now = this.getServerTime();
-    const elapsedSec = (now - this.startTimeMs) / 1000;
+    const elapsedSec = Math.max(0, (now - this.startTimeMs) / 1000);
     const remainingSec = Math.max(0, this.durationSec - elapsedSec);
     const wholeSec = Math.ceil(remainingSec);
 

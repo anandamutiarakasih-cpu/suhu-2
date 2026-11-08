@@ -25,6 +25,21 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
     }
   });
 
+  // Initial load check
+  firebaseService.getSession(sessionCode).then((session) => {
+    const team = session?.teams?.[`team_${teamNumber}`];
+    if (team) {
+      totalScoreG3 = team.scores?.game3 || 0;
+      const dispG3 = container.querySelector('#disp-g3-score');
+      if (dispG3) dispG3.textContent = totalScoreG3.toFixed(1);
+
+      if (team.progress?.game3Submitted) {
+        renderGame3Finish();
+        return;
+      }
+    }
+  });
+
   renderProblem();
 
   function renderProblem() {
@@ -99,34 +114,32 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
                   <input 
                     type="text" 
                     id="input-heat-ans" 
-                    class="tc-input tc-input-calc" 
-                    placeholder="Contoh: ${item.correctAnswer.toLocaleString('id-ID')}" 
-                    autocomplete="off" 
+                    class="tc-input tc-input-large" 
+                    placeholder="Ketik angka desimal / bulat..." 
+                    inputmode="decimal"
+                    autocomplete="off"
                     required 
                   />
                   <span class="tc-unit-addon">${item.unit}</span>
                 </div>
-                <small class="tc-input-note">Bisa menggunakan format angka langsung (misal: <code>252000</code>) atau dengan pemisah ribuan (<code>252.000</code>).</small>
               </div>
-
-              <div class="tc-calc-btn-wrap">
-                <button type="submit" id="btn-submit-calc" class="tc-btn tc-btn-primary tc-btn-large">
-                  <span>VALIDASI & KIRIM</span>
-                  <span>⚡</span>
-                </button>
-              </div>
+              <button type="submit" id="btn-submit-calc" class="tc-btn tc-btn-primary tc-btn-large">
+                <span>VERIFIKASI HASIL</span>
+                <span>⚡</span>
+              </button>
             </div>
           </form>
 
           <!-- Explanation Container (Appears after submission) -->
-          <div class="tc-explanation-card" id="explanation-container" style="display: none;">
+          <div class="tc-calc-explanation-card" id="explanation-container" style="display: none;">
             <div class="tc-exp-header">
-              <span class="tc-exp-tag">PEMBAHASAN FISIKA TERMAL</span>
-              <span class="tc-exp-result-badge" id="exp-badge">-</span>
+              <span class="tc-exp-icon">🔬</span>
+              <h4>Pembahasan Ilmiah Resmi</h4>
+              <span id="exp-badge" class="tc-exp-result-badge"></span>
             </div>
-            <p class="tc-exp-text" id="exp-text"></p>
-            <button type="button" id="btn-next-calc" class="tc-btn tc-btn-outline tc-btn-block">
-              <span>Lanjut ke Soal Berikutnya →</span>
+            <div class="tc-exp-body" id="exp-text"></div>
+            <button type="button" id="btn-next-calc" class="tc-btn tc-btn-secondary tc-btn-block">
+              <span>LANJUT SOAL BERIKUTNYA →</span>
             </button>
           </div>
         </div>
@@ -137,7 +150,7 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
     if (!timerInstance) {
       const timerBox = container.querySelector('#g3-timer-container');
       firebaseService.getSession(sessionCode).then((session) => {
-        const startTime = session?.phaseStartTime || Date.now();
+        const startTime = session?.phaseStartTime || firebaseService.getServerTime();
         const duration = session?.settings?.game3TotalTime || 120;
 
         timerInstance = new SyncTimer({
@@ -220,9 +233,9 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
           renderProblem();
         });
       } catch (err) {
-        toast.error('Gagal memvalidasi kalkulasi: ' + err.message);
+        toast.error('Gagal mengirimkan jawaban: ' + err.message);
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Coba Lagi';
+        submitBtn.textContent = 'Coba Kirim Ulang';
         isSubmitting = false;
       }
     });

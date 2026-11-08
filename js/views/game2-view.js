@@ -27,6 +27,21 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
     }
   });
 
+  // Initial load check
+  firebaseService.getSession(sessionCode).then((session) => {
+    const team = session?.teams?.[`team_${teamNumber}`];
+    if (team) {
+      totalScoreG2 = team.scores?.game2 || 0;
+      const dispG2 = container.querySelector('#disp-g2-score');
+      if (dispG2) dispG2.textContent = totalScoreG2.toFixed(1);
+
+      if (team.progress?.game2Submitted) {
+        renderGame2Finish();
+        return;
+      }
+    }
+  });
+
   renderWord();
 
   function renderWord() {
@@ -119,19 +134,20 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
     const btnSubmit = container.querySelector('#btn-scramble-submit');
     const boardCard = container.querySelector('#scramble-board-card');
 
-    // Start Question Timer (18-20s)
+    // Start Question Timer (18-20s) with synchronized server time
     const timerBox = container.querySelector('#g2-timer-container');
     const duration = item.timeLimit || 20;
+    const startMs = firebaseService.getServerTime();
 
     timerInstance = new SyncTimer({
       container: timerBox,
       durationSec: duration,
-      startTimeMs: Date.now(),
+      startTimeMs: startMs,
       getServerTime: () => firebaseService.getServerTime(),
       onComplete: () => {
         if (!isAnswering) {
           toast.warning(`Waktu habis untuk kata ke-${currentIndex + 1}!`);
-          submitCurrentWord(true); // force submit on timeout
+          submitCurrentWord(true);
         }
       }
     });
@@ -161,9 +177,7 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
       if (slotIdx < selectedTiles.length) {
         audio.playClick();
         const tileIdx = selectedTiles[slotIdx];
-        // Remove from selected
         selectedTiles.splice(slotIdx, 1);
-        // Unmark tile
         const t = tilesPool.querySelector(`.tc-letter-tile[data-index="${tileIdx}"]`);
         if (t) t.classList.remove('used');
         updateSlots();
@@ -200,7 +214,6 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
         btnSubmit.click();
       } else if (/^[a-zA-Z]$/.test(e.key)) {
         const char = e.key.toUpperCase();
-        // Find first unused tile with this char
         const tile = Array.from(tilesPool.querySelectorAll('.tc-letter-tile')).find(
           (t) => t.dataset.char === char && !t.classList.contains('used')
         );
@@ -302,8 +315,8 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
             <strong>${totalScoreG2.toFixed(1)} / 35 Poin</strong>
           </div>
           <p class="tc-finish-desc">
-            Hebat! Kamu telah menyelesaikan 10 tantangan penyusunan istilah kalor. 
-            Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 3: Extreme Addition (Kalkulasi Kalor)</strong>...
+            Hebat! Kamu telah menyelesaikan 10 tantangan penyusunan istilah suhu dan pemuaian. 
+            Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 3: Extreme Addition (Kalkulasi Suhu)</strong>...
           </p>
           <div class="tc-radar-spinner"></div>
         </div>

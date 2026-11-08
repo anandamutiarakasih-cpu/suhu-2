@@ -782,6 +782,58 @@ class FirebaseService {
     };
     window.addEventListener('storage', storageHandler);
 
+    // 5. Adaptive HTTP REST Polling (Guaranteed mobile sync over cellular / screen sleep)
+    let lastPolledJson = '';
+    let isPolling = false;
+
+    const pollSession = async () => {
+      if (isPolling) return;
+      isPolling = true;
+      try {
+        const res = await fetch(`${this.rtdbUrl}/sessions/${cleanCode}.json?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' }
+        });
+        if (res.ok) {
+          const val = await res.json();
+          if (val && typeof val === 'object' && val.code) {
+            const jsonStr = JSON.stringify(val);
+            if (jsonStr !== lastPolledJson) {
+              lastPolledJson = jsonStr;
+              try {
+                localStorage.setItem(`tc_session_${cleanCode}`, jsonStr);
+              } catch (e) {}
+              if (this.listeners.has(cleanCode)) {
+                this.listeners.get(cleanCode).forEach((cb) => cb(val));
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Silently tolerate temporary mobile network hiccups
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    // Run active polling every 1.5s
+    const pollInterval = setInterval(pollSession, 1500);
+
+    // Instant resync when mobile device wakes up, screen unlocks, or tab regains focus
+    const visibilityHandler = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        pollSession();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', visibilityHandler);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', visibilityHandler);
+      window.addEventListener('online', pollSession);
+    }
+
     return () => {
       if (this.listeners.has(cleanCode)) {
         this.listeners.get(cleanCode).delete(callback);
@@ -792,6 +844,14 @@ class FirebaseService {
       if (cleanupFbSSE) cleanupFbSSE();
       if (cleanupCloudSSE) cleanupCloudSSE();
       window.removeEventListener('storage', storageHandler);
+      if (pollInterval) clearInterval(pollInterval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', visibilityHandler);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', visibilityHandler);
+        window.removeEventListener('online', pollSession);
+      }
     };
   }
 
@@ -802,9 +862,12 @@ class FirebaseService {
     if (!sessionCode) return null;
     const cleanCode = String(sessionCode).trim().toUpperCase();
 
-    // 1. Fast Direct REST Fetch from Firebase RTDB (Instant, bypasses any SDK connection delay)
+    // 1. Fast Direct REST Fetch from Firebase RTDB (Instant, bypasses any SDK connection delay & browser caching)
     try {
-      const res = await fetch(`${this.rtdbUrl}/sessions/${cleanCode}.json`);
+      const res = await fetch(`${this.rtdbUrl}/sessions/${cleanCode}.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store' }
+      });
       if (res.ok) {
         const val = await res.json();
         if (val && typeof val === 'object' && val.code) {

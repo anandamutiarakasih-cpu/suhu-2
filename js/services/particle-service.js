@@ -36,6 +36,8 @@ class ParticleService {
     if (!this.canvas) return;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
+    const isMobile = window.innerWidth <= 768;
+    this.maxParticles = isMobile ? 18 : 55;
   }
 
   createParticles() {

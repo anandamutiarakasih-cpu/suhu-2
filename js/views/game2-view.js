@@ -291,12 +291,14 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
 
         setTimeout(() => {
           currentIndex++;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           renderWord();
         }, 1600);
       } catch (err) {
         toast.error('Gagal mengirim jawaban: ' + err.message);
         setTimeout(() => {
           currentIndex++;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           renderWord();
         }, 1500);
       }

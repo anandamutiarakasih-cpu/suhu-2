@@ -54,6 +54,10 @@ export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
                 maxlength="8" 
                 required 
                 autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                enterkeyhint="go"
               />
             </div>
             <button type="submit" class="tc-btn tc-btn-primary tc-btn-block">

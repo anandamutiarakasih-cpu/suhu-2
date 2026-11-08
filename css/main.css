@@ -50,6 +50,25 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Touch responsiveness optimization: eliminate 300ms double-tap delay on mobile */
+button,
+a,
+input,
+select,
+textarea,
+.tc-btn,
+.tc-team-num-btn,
+.tc-opt-btn,
+.tc-letter-tile,
+.tc-slot-box,
+.tc-audio-btn,
+.tc-member-del-btn,
+.tc-phase-btn,
+.tc-admin-action-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--tc-dark);

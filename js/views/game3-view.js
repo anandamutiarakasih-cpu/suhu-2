@@ -118,6 +118,9 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
                     placeholder="Ketik angka desimal / bulat..." 
                     inputmode="decimal"
                     autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    enterkeyhint="done"
                     required 
                   />
                   <span class="tc-unit-addon">${item.unit}</span>
@@ -230,6 +233,7 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
         btnNext.addEventListener('click', () => {
           audio.playClick();
           currentIndex++;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           renderProblem();
         });
       } catch (err) {

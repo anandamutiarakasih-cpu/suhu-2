@@ -48,6 +48,9 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
     // Phase moved outside Game 1 (GAME2, GAME3, LOBBY, FINISHED)
     if (phase && phase !== 'GAME1_MEMORIZE' && phase !== 'GAME1_PLAY') {
       cleanup();
+      if (phase === 'LOBBY') {
+        toast.warning('⚠️ Sesi telah di-reset oleh Guru. Permainan kembali ke Lobi persiapan.');
+      }
       if (onPhaseChange) onPhaseChange(phase, session);
     }
   });
@@ -168,7 +171,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
     if (btnLeave) {
       btnLeave.addEventListener('click', () => {
         audio.playClick();
-        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+        if (confirm('⚠️ PERINGATAN:\n\nJika keluar dari sesi ini, seluruh progres permainan di perangkat ini akan di-reset total ke awal dan Anda akan kembali ke menu masukkan kode.\n\nApakah Anda yakin ingin keluar?')) {
           cleanup();
           firebaseService.clearStoredTeamSession();
           window.location.href = '/';
@@ -403,7 +406,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
     if (btnLeave) {
       btnLeave.addEventListener('click', () => {
         audio.playClick();
-        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+        if (confirm('⚠️ PERINGATAN:\n\nJika keluar dari sesi ini, seluruh progres permainan di perangkat ini akan di-reset total ke awal dan Anda akan kembali ke menu masukkan kode.\n\nApakah Anda yakin ingin keluar?')) {
           cleanup();
           firebaseService.clearStoredTeamSession();
           window.location.href = '/';

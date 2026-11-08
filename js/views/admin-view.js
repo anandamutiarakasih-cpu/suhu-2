@@ -377,13 +377,33 @@ export function renderAdminView(container, { onExit }) {
       toast.success('8 kelompok berhasil didaftarkan ke sesi!');
     });
 
-    // Reset Session
+    // Reset Session (Guru Control)
     btnReset.addEventListener('click', async () => {
-      if (!activeSessionCode) return;
-      if (confirm('Apakah Anda yakin ingin me-reset seluruh skor dan progres pada sesi ini?')) {
+      if (!activeSessionCode) {
+        toast.warning('Belum ada sesi aktif yang dipilih.');
+        return;
+      }
+      const warningText = `⚠️ PERINGATAN RESET TOTAL SESI ${activeSessionCode}:\n\n` +
+        `Jika sesi ini di-reset:\n` +
+        `• SEMUA skor (Game 1, Game 2, Game 3) akan di-reset kembali ke 0 poin.\n` +
+        `• Seluruh progres pengerjaan 8 kelompok akan dibersihkan.\n` +
+        `• Sesi akan ditarik mundur kembali ke Lobi persiapan.\n` +
+        `• Layar seluruh siswa yang sedang bermain akan otomatis kembali ke Lobi.\n\n` +
+        `Apakah Anda benar-benar yakin ingin me-reset SEMUANYA?`;
+
+      if (confirm(warningText)) {
         audio.playClick();
-        await firebaseService.resetSession(activeSessionCode);
-        toast.success('Sesi berhasil di-reset.');
+        try {
+          btnReset.disabled = true;
+          btnReset.textContent = 'Mereset...';
+          await firebaseService.resetSession(activeSessionCode);
+          toast.success(`Sesi ${activeSessionCode} berhasil di-reset total ke awal.`);
+        } catch (e) {
+          toast.error('Gagal me-reset sesi: ' + e.message);
+        } finally {
+          btnReset.disabled = false;
+          btnReset.textContent = '🔄 Reset Sesi';
+        }
       }
     });
 

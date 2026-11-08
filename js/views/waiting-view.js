@@ -67,7 +67,7 @@ export function renderWaitingView(container, { sessionCode, teamNumber, onPhaseC
   if (btnLeave) {
     btnLeave.addEventListener('click', () => {
       audio.playClick();
-      if (confirm('Keluar dari kelompok dan kembali ke halaman utama?')) {
+      if (confirm('⚠️ PERINGATAN:\n\nJika keluar dari kelompok, pendaftaran Anda di sesi ini akan di-reset dan nomor kelompok akan kembali tersedia untuk orang lain.\n\nApakah Anda yakin ingin keluar ke halaman utama?')) {
         if (unsubscribe) unsubscribe();
         firebaseService.clearStoredTeamSession();
         window.location.href = '/';

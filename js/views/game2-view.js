@@ -23,6 +23,9 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
     if (!session) return;
     if (session.currentPhase && session.currentPhase !== 'GAME2') {
       cleanup();
+      if (session.currentPhase === 'LOBBY') {
+        toast.warning('⚠️ Sesi telah di-reset oleh Guru. Permainan kembali ke Lobi persiapan.');
+      }
       if (onPhaseChange) onPhaseChange(session.currentPhase, session);
     }
   });
@@ -335,7 +338,7 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
     if (btnLeave) {
       btnLeave.addEventListener('click', () => {
         audio.playClick();
-        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+        if (confirm('⚠️ PERINGATAN:\n\nJika keluar dari sesi ini, seluruh progres permainan di perangkat ini akan di-reset total ke awal dan Anda akan kembali ke menu masukkan kode.\n\nApakah Anda yakin ingin keluar?')) {
           cleanup();
           firebaseService.clearStoredTeamSession();
           window.location.href = '/';

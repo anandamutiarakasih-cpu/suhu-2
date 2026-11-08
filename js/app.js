@@ -41,6 +41,36 @@ class ThermoChampionsApp {
       return;
     }
 
+    // Attach BeforeUnload warning: Warn user that refreshing resets the session
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', (e) => {
+        if (this.currentRoute && this.currentRoute !== 'home' && this.currentRoute !== 'admin') {
+          try {
+            sessionStorage.setItem('tc_refresh_reset_notice', 'true');
+          } catch (err) {}
+          // Clear credentials so on reload it resets completely
+          firebaseService.clearStoredTeamSession();
+          e.preventDefault();
+          e.returnValue = 'Perhatian: Me-refresh halaman akan mereset permainan dan mengeluarkan Anda dari sesi!';
+          return e.returnValue;
+        }
+      });
+    }
+
+    // Check if page was refreshed while playing in a session
+    let wasRefreshed = false;
+    try {
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tc_refresh_reset_notice') === 'true') {
+        wasRefreshed = true;
+        sessionStorage.removeItem('tc_refresh_reset_notice');
+      }
+    } catch (e) {}
+
+    // On page load/refresh: ALWAYS reset local team session completely
+    firebaseService.clearStoredTeamSession();
+    this.state.sessionCode = null;
+    this.state.teamNumber = null;
+
     // Check if session code was passed explicitly in URL (e.g. ?session=TC1234)
     let urlCode = null;
     try {
@@ -51,20 +81,14 @@ class ThermoChampionsApp {
       }
     } catch (e) {}
 
-    // If an explicit new session code is in the URL, prioritize it over any stored session
     if (urlCode) {
-      const stored = firebaseService.getStoredTeamSession();
-      if (stored && stored.sessionCode !== urlCode) {
-        firebaseService.clearStoredTeamSession();
-      }
       this.state.sessionCode = urlCode;
       this.navigate('register', { sessionCode: urlCode });
       return;
     }
 
-    // Always navigate to Home view by default so user ALWAYS sees the Code Input form.
-    // If a saved session exists, Home view will present a resume option without locking the screen.
-    this.navigate('home');
+    // Always navigate to Home view and inform if a refresh reset occurred
+    this.navigate('home', { wasRefreshed });
   }
 
   async reconnectSession(sessionCode, teamNumber) {
@@ -141,14 +165,10 @@ class ThermoChampionsApp {
     switch (route) {
       case 'home':
         this.currentViewInstance = renderHomeView(this.appContainer, {
+          wasRefreshed: Boolean(params.wasRefreshed),
           onJoinTeam: (sessionCode) => {
             this.state.sessionCode = sessionCode;
             this.navigate('register', { sessionCode });
-          },
-          onResumeSession: (sessionCode, teamNumber) => {
-            this.state.sessionCode = sessionCode;
-            this.state.teamNumber = teamNumber;
-            this.reconnectSession(sessionCode, teamNumber);
           },
           onOpenAdmin: () => {
             this.navigate('admin');

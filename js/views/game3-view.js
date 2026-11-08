@@ -262,10 +262,28 @@ export function renderGame3View(container, { sessionCode, teamNumber, onGameComp
             Luar biasa! Kelompok ${teamNumber} telah berjuang di seluruh 3 game sains suhu & pemuaian. 
             Menunggu Guru untuk membuka <strong>Leaderboard & Pengumuman Juara Thermo Champions</strong>...
           </p>
-          <div class="tc-radar-spinner"></div>
+          <div class="tc-radar-spinner" style="margin-bottom: 1.5rem;"></div>
+
+          <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+            <button id="btn-g3-finish-leave" class="tc-btn tc-btn-sm tc-btn-ghost danger">
+              🚪 Keluar / Masukkan Kode Baru
+            </button>
+          </div>
         </div>
       </div>
     `;
+
+    const btnLeave = container.querySelector('#btn-g3-finish-leave');
+    if (btnLeave) {
+      btnLeave.addEventListener('click', () => {
+        audio.playClick();
+        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+          cleanup();
+          firebaseService.clearStoredTeamSession();
+          window.location.href = '/';
+        }
+      });
+    }
 
     audio.playFanfare();
     if (onGameCompleted) {

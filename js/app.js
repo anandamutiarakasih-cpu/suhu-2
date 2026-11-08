@@ -41,36 +41,49 @@ class ThermoChampionsApp {
       return;
     }
 
-    // Check for existing saved team session (survive page refresh / reconnect)
-    const stored = firebaseService.getStoredTeamSession();
-    if (stored && stored.sessionCode && stored.teamNumber) {
-      this.state.sessionCode = stored.sessionCode;
-      this.state.teamNumber = stored.teamNumber;
-      this.reconnectSession(stored.sessionCode, stored.teamNumber);
-    } else {
-      // Check if session code was passed in URL (e.g. ?session=TC1234)
-      let urlCode = null;
-      try {
-        if (typeof window !== 'undefined' && window.location && window.location.search) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const rawCode = urlParams.get('session');
-          if (rawCode) urlCode = rawCode.trim().toUpperCase().replace(/[-\s]/g, '');
-        }
-      } catch (e) {}
-
-      if (urlCode) {
-        this.state.sessionCode = urlCode;
-        this.navigate('register', { sessionCode: urlCode });
-      } else {
-        this.navigate('home');
+    // Check if session code was passed explicitly in URL (e.g. ?session=TC1234)
+    let urlCode = null;
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const rawCode = urlParams.get('session');
+        if (rawCode) urlCode = rawCode.trim().toUpperCase().replace(/[-\s]/g, '');
       }
+    } catch (e) {}
+
+    // If an explicit new session code is in the URL, prioritize it over any stored session
+    if (urlCode) {
+      const stored = firebaseService.getStoredTeamSession();
+      if (stored && stored.sessionCode !== urlCode) {
+        firebaseService.clearStoredTeamSession();
+      }
+      this.state.sessionCode = urlCode;
+      this.navigate('register', { sessionCode: urlCode });
+      return;
     }
+
+    // Always navigate to Home view by default so user ALWAYS sees the Code Input form.
+    // If a saved session exists, Home view will present a resume option without locking the screen.
+    this.navigate('home');
   }
 
   async reconnectSession(sessionCode, teamNumber) {
     try {
       const session = await firebaseService.getSession(sessionCode);
       if (session) {
+        if (session.status === 'FINISHED' || session.currentPhase === 'FINISHED') {
+          firebaseService.clearStoredTeamSession();
+          this.navigate('home');
+          return;
+        }
+
+        const teamKey = `team_${teamNumber}`;
+        if (!session.teams || !session.teams[teamKey] || !session.teams[teamKey].claimed) {
+          firebaseService.clearStoredTeamSession();
+          this.navigate('home');
+          return;
+        }
+
         this.routeByPhase(session.currentPhase || 'LOBBY');
         return;
       }
@@ -131,6 +144,11 @@ class ThermoChampionsApp {
           onJoinTeam: (sessionCode) => {
             this.state.sessionCode = sessionCode;
             this.navigate('register', { sessionCode });
+          },
+          onResumeSession: (sessionCode, teamNumber) => {
+            this.state.sessionCode = sessionCode;
+            this.state.teamNumber = teamNumber;
+            this.reconnectSession(sessionCode, teamNumber);
           },
           onOpenAdmin: () => {
             this.navigate('admin');

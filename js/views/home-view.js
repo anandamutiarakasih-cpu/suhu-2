@@ -5,9 +5,15 @@
 
 import { audio } from '../services/audio-service.js';
 import { toast } from '../components/notification.js';
+import { firebaseService } from '../services/firebase-service.js';
 
-export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
+export function renderHomeView(container, { onJoinTeam, onOpenAdmin, onResumeSession }) {
   const isMuted = audio.isMuted();
+
+  // Check if there is a recent saved session (within 2 hours)
+  const storedSession = firebaseService.getStoredTeamSession();
+  const isStoredFresh = storedSession && storedSession.savedAt && (Date.now() - storedSession.savedAt < 1000 * 60 * 60 * 2);
+  const activePrevSession = (storedSession && isStoredFresh) ? storedSession : null;
 
   container.innerHTML = `
     <div class="tc-view tc-home-view">
@@ -31,6 +37,24 @@ export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
           Uji daya ingat, kecepatan susun istilah, dan kalkulasi konversi termometer laboratorium!
         </p>
       </header>
+
+      ${activePrevSession ? `
+        <!-- Optional Resume Banner for Students Who Refreshed Mid-Game -->
+        <div class="tc-resume-banner" id="prev-session-banner" style="background: rgba(56, 189, 248, 0.12); border: 1.5px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-md); padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+          <div style="font-size: 0.9rem;">
+            <span style="color: var(--tc-sky); font-weight: 700;">⚡ TERAKHIR TERGABUNG:</span>
+            <span style="color: #f8fafc;"> Sesi <strong>${activePrevSession.sessionCode}</strong> (Kelompok ${activePrevSession.teamNumber}${activePrevSession.teamName ? ' - ' + activePrevSession.teamName : ''})</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="btn-resume-prev-session" type="button" class="tc-btn tc-btn-sm tc-btn-primary">
+              Lanjutkan Sesi Ini →
+            </button>
+            <button id="btn-clear-prev-session" type="button" class="tc-btn tc-btn-sm tc-btn-ghost danger" title="Hapus sesi ini dan masukkan kode baru">
+              ✕ Ganti Kode
+            </button>
+          </div>
+        </div>
+      ` : ''}
 
       <!-- Role Selection Cards -->
       <div class="tc-role-grid">
@@ -120,6 +144,30 @@ export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
     toast.info(muted ? 'Suara dinonaktifkan' : 'Suara diaktifkan');
   });
 
+  // Resume or Forget Previous Saved Session Handlers
+  if (activePrevSession) {
+    const btnResume = container.querySelector('#btn-resume-prev-session');
+    if (btnResume) {
+      btnResume.addEventListener('click', () => {
+        audio.playClick();
+        if (onResumeSession) {
+          onResumeSession(activePrevSession.sessionCode, activePrevSession.teamNumber);
+        }
+      });
+    }
+
+    const btnClearPrev = container.querySelector('#btn-clear-prev-session');
+    if (btnClearPrev) {
+      btnClearPrev.addEventListener('click', () => {
+        audio.playClick();
+        firebaseService.clearStoredTeamSession();
+        const banner = container.querySelector('#prev-session-banner');
+        if (banner) banner.remove();
+        toast.info('Sesi lama dihapus. Masukkan kode sesi baru dari Guru.');
+      });
+    }
+  }
+
   // Quick Join Form
   const formJoin = container.querySelector('#form-quick-join');
   formJoin.addEventListener('submit', (e) => {
@@ -134,6 +182,12 @@ export function renderHomeView(container, { onJoinTeam, onOpenAdmin }) {
     if (!code.startsWith('TC') && code.length === 4) {
       code = 'TC' + code;
     }
+
+    // Entering a new session code always replaces old session
+    if (activePrevSession && activePrevSession.sessionCode !== code) {
+      firebaseService.clearStoredTeamSession();
+    }
+
     if (onJoinTeam) onJoinTeam(code);
   });
 

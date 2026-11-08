@@ -154,12 +154,27 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
             Bersiaplah mencocokkan 10 pasangan konsep pada <strong>Fase 1B: Uji Daya Ingat</strong>.
           </p>
           <div class="tc-radar-spinner" style="margin: 0 auto 1.25rem;"></div>
-          <p style="color: #38bdf8; font-weight: 700; font-size: 1rem;">
+          <p style="color: #38bdf8; font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem;">
             <span class="tc-pulse-dot"></span> Menunggu Guru mengaktifkan Fase 1B di layar utama...
           </p>
+          <button id="btn-g1-standby-leave" class="tc-btn tc-btn-sm tc-btn-ghost danger" style="margin: 0 auto;">
+            🚪 Keluar / Ganti Sesi Baru
+          </button>
         </div>
       </div>
     `;
+
+    const btnLeave = container.querySelector('#btn-g1-standby-leave');
+    if (btnLeave) {
+      btnLeave.addEventListener('click', () => {
+        audio.playClick();
+        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+          cleanup();
+          firebaseService.clearStoredTeamSession();
+          window.location.href = '/';
+        }
+      });
+    }
   }
 
   // ==========================================
@@ -373,10 +388,28 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
             Hebat! Jawaban Game 1 telah tersimpan secara permanen di server. 
             Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 2: Word Scramble</strong>...
           </p>
-          <div class="tc-radar-spinner"></div>
+          <div class="tc-radar-spinner" style="margin-bottom: 1.5rem;"></div>
+
+          <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+            <button id="btn-g1-finish-leave" class="tc-btn tc-btn-sm tc-btn-ghost danger">
+              🚪 Keluar / Masukkan Kode Baru
+            </button>
+          </div>
         </div>
       </div>
     `;
+
+    const btnLeave = container.querySelector('#btn-g1-finish-leave');
+    if (btnLeave) {
+      btnLeave.addEventListener('click', () => {
+        audio.playClick();
+        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+          cleanup();
+          firebaseService.clearStoredTeamSession();
+          window.location.href = '/';
+        }
+      });
+    }
   }
 
   function cleanup() {

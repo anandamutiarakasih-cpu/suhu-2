@@ -320,10 +320,28 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
             Hebat! Kamu telah menyelesaikan 10 tantangan penyusunan istilah suhu dan pemuaian. 
             Menunggu instruksi Guru untuk melanjutkan ke <strong>Game 3: Extreme Addition (Kalkulasi Suhu)</strong>...
           </p>
-          <div class="tc-radar-spinner"></div>
+          <div class="tc-radar-spinner" style="margin-bottom: 1.5rem;"></div>
+
+          <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+            <button id="btn-g2-finish-leave" class="tc-btn tc-btn-sm tc-btn-ghost danger">
+              🚪 Keluar / Masukkan Kode Baru
+            </button>
+          </div>
         </div>
       </div>
     `;
+
+    const btnLeave = container.querySelector('#btn-g2-finish-leave');
+    if (btnLeave) {
+      btnLeave.addEventListener('click', () => {
+        audio.playClick();
+        if (confirm('Keluar dari sesi ini dan kembali ke menu utama untuk memasukkan kode baru?')) {
+          cleanup();
+          firebaseService.clearStoredTeamSession();
+          window.location.href = '/';
+        }
+      });
+    }
 
     audio.playFanfare();
     if (onGameCompleted) {

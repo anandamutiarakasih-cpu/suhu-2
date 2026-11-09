@@ -14,9 +14,15 @@ export function renderWaitingView(container, { sessionCode, teamNumber, onPhaseC
       <!-- Top Status Banner -->
       <header class="tc-waiting-header" style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
         <div>
-          <div class="tc-badge-lab">
-            <span class="tc-pulse-dot"></span>
-            LOBI TERMAL • SINKRONISASI AKTIF
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <div class="tc-badge-lab">
+              <span class="tc-pulse-dot"></span>
+              LOBI TERMAL • SINKRONISASI AKTIF
+            </div>
+            <div class="tc-hud-net-badge" id="waiting-net-badge">
+              <span class="tc-net-dot online"></span>
+              <span class="tc-net-text">Live</span>
+            </div>
           </div>
           <h2 class="tc-waiting-title">Ruang Persiapan Kelompok</h2>
           <div class="tc-session-tag">KODE SESI: <strong>${sessionCode}</strong></div>
@@ -124,9 +130,33 @@ export function renderWaitingView(container, { sessionCode, teamNumber, onPhaseC
     }
   });
 
+  // Monitor network connection quality
+  let unsubNet = null;
+  const netBadge = container.querySelector('#waiting-net-badge');
+  if (netBadge && firebaseService.onConnectionChange) {
+    unsubNet = firebaseService.onConnectionChange((status) => {
+      const dot = netBadge.querySelector('.tc-net-dot');
+      const txt = netBadge.querySelector('.tc-net-text');
+      if (!dot || !txt) return;
+
+      netBadge.className = `tc-hud-net-badge ${status.status.toLowerCase()}`;
+      if (status.status === 'ONLINE' || status.status === 'RECOVERED') {
+        dot.className = 'tc-net-dot online';
+        txt.textContent = 'Live';
+      } else if (status.status === 'LAG') {
+        dot.className = 'tc-net-dot lag';
+        txt.textContent = 'Lag';
+      } else if (status.status === 'OFFLINE') {
+        dot.className = 'tc-net-dot offline';
+        txt.textContent = 'Offline';
+      }
+    });
+  }
+
   return {
     destroy: () => {
       if (unsubscribe) unsubscribe();
+      if (unsubNet) unsubNet();
     }
   };
 }

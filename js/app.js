@@ -254,6 +254,9 @@ class ThermoChampionsApp {
         this.currentViewInstance = renderLeaderboardView(this.appContainer, {
           sessionCode: this.state.sessionCode,
           teamNumber: this.state.teamNumber,
+          onPhaseChange: (newPhase) => {
+            this.routeByPhase(newPhase);
+          },
           onHome: () => {
             firebaseService.clearStoredTeamSession();
             this.state.sessionCode = null;

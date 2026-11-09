@@ -379,3 +379,137 @@
     transform: translateY(0);
   }
 }
+
+/* ===================================================
+   Network Connection & Latency Watchdog Styles
+   =================================================== */
+.tc-net-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: slideDownBanner 0.3s ease;
+  transition: all 0.3s ease;
+}
+
+.tc-net-banner.offline {
+  background: #dc2626;
+  color: #ffffff;
+  border-bottom: 2px solid #ef4444;
+}
+
+.tc-net-banner.lag {
+  background: #d97706;
+  color: #ffffff;
+  border-bottom: 2px solid #f59e0b;
+}
+
+.tc-net-banner.recovered,
+.tc-net-banner.online {
+  background: #16a34a;
+  color: #ffffff;
+  border-bottom: 2px solid #22c55e;
+}
+
+.tc-net-banner.hide {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+@keyframes slideDownBanner {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Network Status Dots & Badges */
+.tc-net-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tc-net-dot.online {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.tc-net-dot.lag {
+  background-color: #eab308;
+  box-shadow: 0 0 8px #eab308;
+  animation: pulseDot 1s infinite;
+}
+
+.tc-net-dot.offline {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: pulseDot 0.6s infinite;
+}
+
+.tc-hud-net-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+}
+
+.tc-hud-net-badge.lag {
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.tc-hud-net-badge.offline {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.tc-cockpit-net-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tc-sky);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  margin-top: 0.35rem;
+}
+
+.tc-cockpit-net-pill.lag {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.tc-cockpit-net-pill.offline {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+}

@@ -15,6 +15,31 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
   let userAnswers = {};
   let isSubmitted = false;
   let currentLocalPhase = isMemorizePhase ? 'MEMORIZE' : 'PLAY';
+  let unsubNet = null;
+
+  function updateNetBadge(status) {
+    const netBadge = container.querySelector('#g1-net-badge');
+    if (!netBadge) return;
+    const dot = netBadge.querySelector('.tc-net-dot');
+    const txt = netBadge.querySelector('.tc-net-text');
+    if (!dot || !txt) return;
+
+    netBadge.className = `tc-hud-net-badge ${status.status.toLowerCase()}`;
+    if (status.status === 'ONLINE' || status.status === 'RECOVERED') {
+      dot.className = 'tc-net-dot online';
+      txt.textContent = 'Live';
+    } else if (status.status === 'LAG') {
+      dot.className = 'tc-net-dot lag';
+      txt.textContent = 'Lag';
+    } else if (status.status === 'OFFLINE') {
+      dot.className = 'tc-net-dot offline';
+      txt.textContent = 'Offline';
+    }
+  }
+
+  if (firebaseService.onConnectionChange) {
+    unsubNet = firebaseService.onConnectionChange(updateNetBadge);
+  }
 
   // Check initial team progress from server
   firebaseService.getSession(sessionCode).then((session) => {
@@ -39,14 +64,25 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
     const phase = session.currentPhase;
 
     // Transition from 1A (Memorize) to 1B (Play)
-    if (phase === 'GAME1_PLAY' && currentLocalPhase === 'MEMORIZE') {
+    if (phase === 'GAME1_PLAY' && currentLocalPhase !== 'PLAY' && currentLocalPhase !== 'FINISHED') {
       currentLocalPhase = 'PLAY';
       renderPlayMode();
       return;
     }
 
+    // Transition back to 1A (Memorize) if Admin moved phase back
+    if (phase === 'GAME1_MEMORIZE' && currentLocalPhase !== 'MEMORIZE') {
+      currentLocalPhase = 'MEMORIZE';
+      renderMemorizeMode();
+      return;
+    }
+
     // Phase moved outside Game 1 (GAME2, GAME3, LOBBY, FINISHED)
     if (phase && phase !== 'GAME1_MEMORIZE' && phase !== 'GAME1_PLAY') {
+      if (currentLocalPhase === 'PLAY' && !isSubmitted) {
+        // Auto-save currently answered items so points are not lost
+        firebaseService.submitGame1(sessionCode, teamNumber, userAnswers).catch(() => {});
+      }
       cleanup();
       if (phase === 'LOBBY') {
         toast.warning('⚠️ Sesi telah di-reset oleh Guru. Permainan kembali ke Lobi persiapan.');
@@ -68,7 +104,10 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 1 • FASE 1A DARI 3</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="tc-badge-lab">GAME 1 • FASE 1A DARI 3</span>
+              <div class="tc-hud-net-badge" id="g1-net-badge"><span class="tc-net-dot online"></span><span class="tc-net-text">Live</span></div>
+            </div>
             <h2 class="tc-hud-title">SHUFFLE AND RECALL: FASE HAFALAN</h2>
           </div>
 
@@ -198,7 +237,10 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 1 • FASE 1B: MENYUSUN & MENGINGAT</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="tc-badge-lab">GAME 1 • FASE 1B: MENYUSUN & MENGINGAT</span>
+              <div class="tc-hud-net-badge" id="g1-net-badge"><span class="tc-net-dot online"></span><span class="tc-net-text">Live</span></div>
+            </div>
             <h2 class="tc-hud-title">SHUFFLE & RECALL: UJI DAYA INGAT</h2>
           </div>
 
@@ -369,7 +411,10 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 1 SELESAI</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="tc-badge-lab">GAME 1 SELESAI</span>
+              <div class="tc-hud-net-badge" id="g1-net-badge"><span class="tc-net-dot online"></span><span class="tc-net-text">Live</span></div>
+            </div>
             <h2 class="tc-hud-title">SHUFFLE & RECALL TUNTAS</h2>
           </div>
 
@@ -418,6 +463,7 @@ export function renderGame1View(container, { sessionCode, teamNumber, isMemorize
   function cleanup() {
     if (timerInstance) timerInstance.destroy();
     if (sessionUnsubscribe) sessionUnsubscribe();
+    if (unsubNet) unsubNet();
   }
 
   return {

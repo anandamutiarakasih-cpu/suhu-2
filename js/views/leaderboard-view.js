@@ -9,7 +9,7 @@ import { particleService } from '../services/particle-service.js';
 import { getPredicate } from '../data/predicates.js';
 import { exportSessionToCSV } from '../services/export-service.js';
 
-export function renderLeaderboardView(container, { sessionCode, teamNumber, onHome }) {
+export function renderLeaderboardView(container, { sessionCode, teamNumber, onHome, onPhaseChange }) {
   let sessionUnsubscribe = null;
   let currentSession = null;
 
@@ -141,6 +141,16 @@ export function renderLeaderboardView(container, { sessionCode, teamNumber, onHo
   sessionUnsubscribe = firebaseService.listenToSession(sessionCode, (session) => {
     if (!session) return;
     currentSession = session;
+
+    // Detect if Admin resets session to LOBBY or moves to another phase
+    if (session.currentPhase && session.currentPhase !== 'FINISHED') {
+      cleanup();
+      if (session.currentPhase === 'LOBBY') {
+        toast.warning('⚠️ Sesi telah di-reset oleh Guru kembali ke Lobi persiapan.');
+      }
+      if (onPhaseChange) onPhaseChange(session.currentPhase, session);
+      return;
+    }
 
     const teams = Object.values(session.teams || {});
     // Sort descending by total score

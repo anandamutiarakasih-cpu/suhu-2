@@ -21,11 +21,133 @@ class FirebaseService {
     this.broadcast = null;
     this.listeners = new Map();
 
+    // Network Health Watchdog
+    this.networkStatus = 'ONLINE'; // 'ONLINE' | 'LAG' | 'OFFLINE'
+    this.lastPingMs = 0;
+    this.consecutiveLags = 0;
+    this.consecutiveErrors = 0;
+    this.connectionListeners = new Set();
+    this.netBannerTimeout = null;
+
     // Standardized RTDB Base URL (ensuring no trailing slash)
     this.rtdbUrl = (firebaseConfig.databaseURL || OFFICIAL_RTDB_URL).replace(/\/$/, '');
 
     this.initBroadcastChannel();
     this.initFirebase();
+    this.initNetworkListeners();
+  }
+
+  initNetworkListeners() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('offline', () => {
+        this.broadcastNetworkStatus('OFFLINE', 0, 'Koneksi internet Anda terputus (Offline). Sedang mencoba menyambung kembali...');
+      });
+      window.addEventListener('online', () => {
+        this.broadcastNetworkStatus('RECOVERED', 0, 'Terhubung kembali ke jaringan internet!');
+      });
+    }
+  }
+
+  onConnectionChange(callback) {
+    this.connectionListeners.add(callback);
+    try {
+      callback({
+        status: this.networkStatus,
+        pingMs: this.lastPingMs,
+        message: this.networkStatus === 'LAG' ? 'Jaringan lag / lambat' : (this.networkStatus === 'OFFLINE' ? 'Koneksi terputus' : 'Online')
+      });
+    } catch (e) {}
+    return () => this.connectionListeners.delete(callback);
+  }
+
+  broadcastNetworkStatus(status, pingMs, message) {
+    this.networkStatus = status;
+    this.lastPingMs = pingMs;
+
+    this.connectionListeners.forEach((cb) => {
+      try {
+        cb({ status, pingMs, message });
+      } catch (e) {}
+    });
+
+    this.updateGlobalNetworkBanner(status, pingMs, message);
+  }
+
+  updateGlobalNetworkBanner(status, pingMs, message) {
+    if (typeof document === 'undefined') return;
+
+    let banner = document.getElementById('tc-network-status-banner');
+    if (status === 'ONLINE') {
+      if (banner) {
+        banner.classList.add('hide');
+        setTimeout(() => banner && banner.remove(), 400);
+      }
+      return;
+    }
+
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'tc-network-status-banner';
+      document.body.prepend(banner);
+    }
+
+    if (this.netBannerTimeout) {
+      clearTimeout(this.netBannerTimeout);
+      this.netBannerTimeout = null;
+    }
+
+    let icon = '⚡';
+    if (status === 'OFFLINE') icon = '🔴';
+    else if (status === 'LAG') icon = '⚠️';
+    else if (status === 'RECOVERED') icon = '🟢';
+
+    banner.className = `tc-net-banner ${status.toLowerCase()}`;
+    banner.innerHTML = `
+      <span class="tc-net-icon">${icon}</span>
+      <span class="tc-net-msg">${message}</span>
+    `;
+
+    if (status === 'RECOVERED') {
+      this.netBannerTimeout = setTimeout(() => {
+        if (banner) {
+          banner.classList.add('hide');
+          setTimeout(() => banner && banner.remove(), 400);
+        }
+      }, 3500);
+    }
+  }
+
+  handleNetworkSuccess(latency) {
+    this.consecutiveErrors = 0;
+    const prevStatus = this.networkStatus;
+    this.lastPingMs = latency;
+
+    // Detect high network lag (> 1800ms)
+    if (latency > 1800) {
+      this.consecutiveLags++;
+      if (this.consecutiveLags >= 2) {
+        this.broadcastNetworkStatus('LAG', latency, `⚠️ Jaringan lambat / lag (Ping: ${(latency / 1000).toFixed(1)}s). Sedang mencoba menyinkronkan data...`);
+      }
+    } else {
+      this.consecutiveLags = 0;
+      if (prevStatus === 'LAG' || prevStatus === 'OFFLINE') {
+        this.broadcastNetworkStatus('RECOVERED', latency, `Koneksi normal kembali (Ping: ${latency}ms)`);
+      } else {
+        this.broadcastNetworkStatus('ONLINE', latency, `Online (${latency}ms)`);
+      }
+    }
+  }
+
+  handleNetworkError(err) {
+    this.consecutiveErrors++;
+    this.consecutiveLags = 0;
+    if (this.consecutiveErrors >= 2 || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      const isTimeout = err?.name === 'AbortError';
+      const msg = isTimeout 
+        ? 'Koneksi lambat / timeout (> 6s). Memeriksa jaringan internet...' 
+        : 'Koneksi internet terputus. Mencoba menghubungkan kembali ke server...';
+      this.broadcastNetworkStatus('OFFLINE', 0, msg);
+    }
   }
 
   initBroadcastChannel() {
@@ -780,7 +902,9 @@ class FirebaseService {
         } catch (err) {}
       }
     };
-    window.addEventListener('storage', storageHandler);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', storageHandler);
+    }
 
     // 5. Adaptive HTTP REST Polling (Guaranteed mobile sync over cellular / screen sleep)
     let lastPolledJson = '';
@@ -789,12 +913,32 @@ class FirebaseService {
     const pollSession = async () => {
       if (isPolling) return;
       isPolling = true;
+      const tStart = performance.now();
       try {
+        const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
         const res = await fetch(`${this.rtdbUrl}/sessions/${cleanCode}.json?t=${Date.now()}`, {
           cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache, no-store' }
+          headers: { 'Cache-Control': 'no-cache, no-store' },
+          signal: controller ? controller.signal : undefined
         });
+        if (timeoutId) clearTimeout(timeoutId);
+
+        const latency = Math.round(performance.now() - tStart);
+
         if (res.ok) {
+          // Synchronize clock offset using HTTP Date header
+          const srvDate = res.headers.get('date');
+          if (srvDate) {
+            const serverMs = new Date(srvDate).getTime();
+            if (!isNaN(serverMs)) {
+              this.serverTimeOffset = serverMs - Date.now();
+            }
+          }
+
+          this.handleNetworkSuccess(latency);
+
           const val = await res.json();
           if (val && typeof val === 'object' && val.code) {
             const jsonStr = JSON.stringify(val);
@@ -808,9 +952,11 @@ class FirebaseService {
               }
             }
           }
+        } else {
+          this.handleNetworkError(new Error(`HTTP ${res.status}`));
         }
       } catch (err) {
-        // Silently tolerate temporary mobile network hiccups
+        this.handleNetworkError(err);
       } finally {
         isPolling = false;
       }
@@ -843,7 +989,9 @@ class FirebaseService {
       }
       if (cleanupFbSSE) cleanupFbSSE();
       if (cleanupCloudSSE) cleanupCloudSSE();
-      window.removeEventListener('storage', storageHandler);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', storageHandler);
+      }
       if (pollInterval) clearInterval(pollInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', visibilityHandler);

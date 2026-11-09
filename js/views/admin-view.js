@@ -91,6 +91,10 @@ export function renderAdminView(container, { onExit }) {
           <div>
             <div class="tc-badge-lab"><span class="tc-pulse-dot"></span> PUSAT KOMANDO REALTIME</div>
             <h2 class="tc-cockpit-title">Kontrol Sesi & Pemantauan 8 Kelompok</h2>
+            <div class="tc-cockpit-net-pill" id="cockpit-net-status">
+              <span class="tc-net-dot online"></span>
+              <span class="tc-net-text">RTDB: Terhubung</span>
+            </div>
           </div>
           
           <div class="tc-cockpit-session-box" id="session-box-controls">
@@ -230,6 +234,29 @@ export function renderAdminView(container, { onExit }) {
     const btnSimulate = dashEl.querySelector('#btn-simulate-teams');
     const btnReset = dashEl.querySelector('#btn-reset-session');
     const dispCode = dashEl.querySelector('#disp-session-code');
+    const netPill = dashEl.querySelector('#cockpit-net-status');
+
+    // Monitor realtime network status in cockpit header
+    let unsubNet = null;
+    if (netPill && firebaseService.onConnectionChange) {
+      unsubNet = firebaseService.onConnectionChange((status) => {
+        const dot = netPill.querySelector('.tc-net-dot');
+        const txt = netPill.querySelector('.tc-net-text');
+        if (!dot || !txt) return;
+
+        netPill.className = `tc-cockpit-net-pill ${status.status.toLowerCase()}`;
+        if (status.status === 'ONLINE' || status.status === 'RECOVERED') {
+          dot.className = 'tc-net-dot online';
+          txt.textContent = `RTDB: Realtime (${status.pingMs || 50}ms)`;
+        } else if (status.status === 'LAG') {
+          dot.className = 'tc-net-dot lag';
+          txt.textContent = `RTDB: Lambat / Lag (${(status.pingMs / 1000).toFixed(1)}s)`;
+        } else if (status.status === 'OFFLINE') {
+          dot.className = 'tc-net-dot offline';
+          txt.textContent = 'RTDB: Koneksi Terputus';
+        }
+      });
+    }
 
     // Create New Session
     btnCreateSession.addEventListener('click', async () => {
@@ -515,6 +542,7 @@ export function renderAdminView(container, { onExit }) {
   return {
     destroy: () => {
       if (unsubscribe) unsubscribe();
+      if (unsubNet) unsubNet();
     }
   };
 }

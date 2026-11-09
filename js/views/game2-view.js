@@ -17,6 +17,31 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
   let totalScoreG2 = 0;
   let selectedTiles = []; // indices of scrambled letters placed in answer slot
   let isAnswering = false;
+  let unsubNet = null;
+
+  function updateNetBadge(status) {
+    const netBadge = container.querySelector('#g2-net-badge');
+    if (!netBadge) return;
+    const dot = netBadge.querySelector('.tc-net-dot');
+    const txt = netBadge.querySelector('.tc-net-text');
+    if (!dot || !txt) return;
+
+    netBadge.className = `tc-hud-net-badge ${status.status.toLowerCase()}`;
+    if (status.status === 'ONLINE' || status.status === 'RECOVERED') {
+      dot.className = 'tc-net-dot online';
+      txt.textContent = 'Live';
+    } else if (status.status === 'LAG') {
+      dot.className = 'tc-net-dot lag';
+      txt.textContent = 'Lag';
+    } else if (status.status === 'OFFLINE') {
+      dot.className = 'tc-net-dot offline';
+      txt.textContent = 'Offline';
+    }
+  }
+
+  if (firebaseService.onConnectionChange) {
+    unsubNet = firebaseService.onConnectionChange(updateNetBadge);
+  }
 
   // Realtime Session listener to detect phase change from Admin
   sessionUnsubscribe = firebaseService.listenToSession(sessionCode, (session) => {
@@ -65,7 +90,10 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
         <!-- Top HUD -->
         <div class="tc-game-hud">
           <div class="tc-hud-badge">
-            <span class="tc-badge-lab">GAME 2 • WORD SCRAMBLE</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="tc-badge-lab">GAME 2 • WORD SCRAMBLE</span>
+              <div class="tc-hud-net-badge" id="g2-net-badge"><span class="tc-net-dot online"></span><span class="tc-net-text">Live</span></div>
+            </div>
             <div class="tc-word-progress">Kata ${currentIndex + 1} dari ${WORD_SCRAMBLE_ITEMS.length}</div>
           </div>
 
@@ -355,6 +383,7 @@ export function renderGame2View(container, { sessionCode, teamNumber, onGameComp
   function cleanup() {
     if (timerInstance) timerInstance.destroy();
     if (sessionUnsubscribe) sessionUnsubscribe();
+    if (unsubNet) unsubNet();
   }
 
   return {
